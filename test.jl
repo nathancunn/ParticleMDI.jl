@@ -1,4 +1,16 @@
 include("smc.jl")
+
+# An example use of pMDImodel
+# Takes arguments
+# data - the datafiles, specified in a Matrix of data arrays
+# dataTypes - a concatenation of the data type structs (only gaussianCluster now)
+# C - the maximum number of clusters to be fit
+# N - the number of particles
+# s - a fixed cluster allocation for the fixed proportion of data
+# ρ - the proportion fo data to be fixed
+# nThreads
+# fullOutput
+# essThreshold
 ## Generate some data for testing
 n_obs = Int64(150)
 K = 2
