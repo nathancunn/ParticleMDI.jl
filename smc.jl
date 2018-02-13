@@ -5,12 +5,14 @@ using StaticArrays
 
 include("particles.jl")
 
-function pMDImodel(data, dataTypes, N)
+function pMDImodel(data, dataTypes, N, particles, nThreads, fullOutput, essThreshold)
     K       = length(data) # No. of datasets
     n_obs   = size(data[1])[1]
+    d       = [size(data[k])[2] for k = 1:K]
     @assert length(dataTypes) == K
     @assert all(x->x==n_obs, [size(data[k])[1] for k = 1:K])
 
+    # The mutation function
     @inline function M!(newParticle::mdiParticle{K}, rng::SMCRNG, p::Int64,
       particle::mdiParticle{K}, scratch::Void) where {K}
       if p == 1
@@ -56,9 +58,13 @@ function pMDImodel(data, dataTypes, N)
       end
     end
 
-
+    # The particle weight
     @inline function lG(p::Int64, particle::mdiParticle{K}, ::Void) where{K}
       return particle.logW
     end
-    return SMCModel(M!, lG, n_obs, mdiParticle{K}, Void)
+
+    model = SMCModel(M!, lG, n_obs, mdiParticle{K}, Void)
+    smcio = smcio = SMCIO{model.particle, model.pScratch}(particles, n_obs, nThreads, fullOutput, essThreshold)
+    return model, smcio
+
 end
