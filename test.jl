@@ -13,10 +13,10 @@ include("smc.jl")
 # essThreshold
 ## Generate some data for testing
 n_obs = Int64(150)
-K = 2
+K = 1
 d     = [rand(2:5) for k = 1:K]
 dataTypes = [gaussianCluster for k = 1:K]
-data      = [[randn(Int64(n_obs * 0.5), d[k]) - 3; randn(Int64(n_obs * 0.5), d[k]) + 3] for k = 1:K]
+dataFiles      = [[randn(Int64(n_obs * 0.5), d[k]) - 10; randn(Int64(n_obs * 0.5), d[k]) + 10] for k = 1:K]
 s = [repeat(1:2, inner = Int(n_obs * 0.5)) for k = 1:K]
 model, smcio = pMDImodel(data, dataTypes, 3, 32, s, 0.25, 4, false, 0.5)
 @time smc!(model, smcio)
@@ -28,7 +28,7 @@ K = 1
 data = [Matrix(dataset("datasets", "iris")[:, 1:4])]
 dataTypes = [gaussianCluster]
 s = [repeat(1:3,  inner = 50)]
-particles = 32
+particles = 128
 nComponents = 10
 nThreads = 4
 essThreshold = 2.0
@@ -53,7 +53,7 @@ for j = 1:150
     i = 151 - j
     if j == 1
         #inds[i] = smcio.allZetas[i][1].c[1]
-        inds[i] = 30
+        inds[i] = 1
 
     else
         inds[i] = smcio.allAs[i][inds[i + 1]]
@@ -61,14 +61,38 @@ for j = 1:150
     end
 end
 
+print([smcio.allZetas[i][inds[i]].c[1] for i in 1:150])
 
-for (i, j) in enumerate(["A", "B"])
-    print(i)
+ref_traj  = [smcio.allZetas[i][inds[i]] for i = 1:length(smcio.allZetas)]
 
+
+@time csmc!(model, smcio, ref_traj, ref_traj)
+print([ref_traj[i].c[1] for i = 1:length(ref_traj)])
+
+
+
+
+cl = gaussianCluster{150, 4, 10}()
+
+@profile gaussianCluster{150, 4, 10}()
+@code_warntype gaussianCluster{150, 4, 10}()
+@trace particle_add(data[1][1, :], 2, 3, cl)
+
+
+
+@time logprob = zeros(N, particles, K)
+
+@time logprob = [[MVector{N, Float64}() for p = 1:particles] for k = 1:K]
+
+@time for i = 1:1000
+    n = rand(1:N)
+    p = rand(1:particles)
+    k = rand(1:K)
+    a = logprob[n, p, k]
+    # a = logprob[k][p][n]
 end
 
-for i  = 1:length(a)
-    a[i].c = [s[1][i]]
+
+@time for k = 1:1000
+    println(k)
 end
-@time csmc!(model, smcio, a, a)
-print([a[i].c for i = 1:length(a)])
