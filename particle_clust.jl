@@ -8,27 +8,14 @@ include("gaussian_cluster.jl")
 include("update_hypers.jl")
 include("misc.jl")
 
-N = 10
-ρ = 0.33
-particles = 16
-n_obs = Int64(150)
-K = 2
-d     = [rand(2:5) for k = 1:K]
-dataTypes = [gaussianCluster for k = 1:K]
-dataFiles      = [[randn(Int64(n_obs * 0.5), d[k]) - 10; randn(Int64(n_obs * 0.5), d[k]) + 10] for k = 1:K]
-
-srand(1234)
-@time out = pmdi(dataFiles, dataTypes, 10, 32, 0.05, 100, "iris.csv", true, 1)
 
 function pmdi(dataFiles, dataTypes, N::Int64, particles::Int64,
     ρ::Float64, iter::Int64, outputFile::String, initialise::Bool, output_freq::Int64)
-
     K       = length(dataFiles) # No. of datasets
     n_obs   = size(dataFiles[1])[1]
     d       = [size(dataFiles[k])[2] for k = 1:K]
     @assert length(dataTypes) == K
     @assert all(x->x==n_obs, [size(dataFiles[k])[1] for k = 1:K])
-
 
     # Initialise the hyperparameters
     M = ones(K) * 2
@@ -100,8 +87,9 @@ function pmdi(dataFiles, dataTypes, N::Int64, particles::Int64,
     for it in 1:iter
         # Reset particles and IDs
         for k = 1:K
-            for p in unique(particle_IDs[:, k])
-                particle[k][p] = particle_reset!(particle[k][p])
+            # for p in unique(particle_IDs[:, k])
+            for p in 1:maximum(particle_IDs[:, k])
+                particle_reset!(particle[k][p])
             end
         end
         particle_IDs .= 1
@@ -145,12 +133,18 @@ function pmdi(dataFiles, dataTypes, N::Int64, particles::Int64,
 
             # Add observation to cluster
             for k = 1:K
-                particle_k = deepcopy(particle[k])
-                for p in unique(new_particle_IDs[:, k])
+                # particle_k = deepcopy(particle[k])
+                # for p in unique(new_particle_IDs[:, k])
+                # Doing this in reverse order means we don't need to copy the particles
+                # Selecting the max value is quicker than checking for unique IDs
+                # If the largest ID is n, then all IDs 1:n exist
+                # If new_ID_1 > new_ID_2, then ID_2 ≧ ID_1
+                for p in maximum(new_particle_IDs[:, k]):-1:1
                     # println(p, " ", particle_IDs[findin(new_particle_IDs[:, k], p)[1], k])
                     # println(sstar[findin(new_particle_IDs[:, k], p)[1], k])
                     # println(particle_IDs[findin(new_particle_IDs[:, k], p)[1], k])
-                    particle[k][p] = particle_add!(dataFiles[k][i, :], i, sstar[findin(new_particle_IDs[:, k], p)[1], k], particle_k[particle_IDs[findin(new_particle_IDs[:, k], p)[1], k]])
+                    # particle[k][p] = particle_add!(dataFiles[k][i, :], i, sstar[findin(new_particle_IDs[:, k], p)[1], k], particle_k[particle_IDs[findin(new_particle_IDs[:, k], p)[1], k]])
+                    particle[k][p] = particle_add!(dataFiles[k][i, :], i, sstar[findin(new_particle_IDs[:, k], p)[1], k], particle[k][particle_IDs[findin(new_particle_IDs[:, k], p)[1], k]])
                 end
             end
             for k = 1:K
