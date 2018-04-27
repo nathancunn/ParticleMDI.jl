@@ -4,7 +4,7 @@ end
 
 function update_M!(M, γ, K, N)
     # Update the mass parameter
-    prior = [2, 4]
+    prior = [2, 0.25]
     for k = 1:K
         current_γ = γ[:, k]
         current_M = Float64(M[k])
@@ -12,7 +12,7 @@ function update_M!(M, γ, K, N)
         log_likelihood_0 = - sum(logpdf.(Gamma(prior[1], prior[2]), current_M))
         proposed_mass = (current_M + rand(Normal()) / 10)
         if proposed_mass <= 0.0
-            alpha <- 0.0
+            alpha = 0.0
         else
             new_log_likelihood = - sum(logpdf.(Gamma(proposed_mass / N, 1), current_γ))
             new_log_likelihood_0 = - sum(logpdf(Gamma.(prior[1], prior[2]), proposed_mass))
@@ -49,7 +49,7 @@ function update_γ!(γ, Φ, v, s, Φ_index, γ_combn, Γ, N, K)
         for n = 1:N
             pertinent_rows = γ_combn_k .== n
             β_star = β_0 + v * sum(exp.(Φ_index[pertinent_rows, :] * Φ_log + sum(Γ[pertinent_rows, :], 2))) ./ γ[n, k]
-            γ[n, k] = rand(Gamma(α_star[n, k], 1 / β_star)) + realmin(Float64)
+            γ[n, k] = rand(Gamma(α_star[n, k], 1 / β_star)) + eps(Float64)
         end
     end
     return
@@ -81,7 +81,7 @@ function update_Φ!(Φ, v, s, Φ_index, γ, K, Γ)
             weights -= maximum(weights)
             weights = exp.(weights)
             α_star = α_0 + sample(1:length(weights), Weights(weights)) - 1
-            Φ[i] = rand(Gamma(α_star, 1 / β_star))
+            Φ[i] = rand(Gamma(α_star, 1 / β_star)) + eps(Float64)
         end
     end
     return
