@@ -12,8 +12,8 @@ function calculate_Φ_lab(K::Int64)
     return Φ_lab
 end
 
-
-function calc_fprob!(fprob, logprob, particle_IDs, K, Π)
+# Not needed anymore
+function calc_fprob!(fprob::Array, logprob, particle_IDs, K, Π)
     for k = 1:K
         for p in unique(particle_IDs[:, k])
             fprob[:, p, k] = Π[:, k] .* exp.(logprob[:, p, k] .- maximum(logprob[:, p, k]))
@@ -22,25 +22,25 @@ function calc_fprob!(fprob, logprob, particle_IDs, K, Π)
     return
 end
 
-function update_logweight!(logweight, particle, particle_IDs, Π, K, N)
+function update_logweight!(logweight::Array, particle::Array, particle_IDs::Array, Π::Array, K::Int64, N::Int64)
     for k = 1:K
         particle_k = particle[k]
         for p in unique(particle_IDs[:, k])
             fprob = Π[:, k] .* exp.(particle_k[p].ζ .- maximum(particle_k[p].ζ))
-            # logweight[findin(particle_IDs[:, k], p)] += log(sum(fprob[:, p, k])) + maximum(logprob[:, p, k])
-            logweight[findin(particle_IDs[:, k], p)] += log(sum(fprob)) + maximum(particle_k[p].ζ)
-            # logweight[findin(particle_IDs[:, k], p)] .= logweight[p]
+            logweight[findin(particle_IDs[:, k], p)] .+= log(sum(fprob)) + maximum(particle_k[p].ζ)
         end
     end
     return
 end
 
-function draw_sstar!(sstar, particle, particle_IDs, Π, K, particles, N)
+function draw_sstar!(sstar::Array, particle::Array, particle_IDs::Array, Π::Array, K::Int64, N::Int64)
     for k = 1:K
-        particle_k = particle[k]
-        for p = 1:particles
-            fprob = Π[:, k] .* exp.(particle_k[particle_IDs[p, k]].ζ .- maximum(particle_k[particle_IDs[p, k]].ζ))
-            sstar[p, k] = sample(1:N, Weights(fprob), 1)[1]
+        π_k = Π[:, k]
+        ids_k = particle_IDs[:, k]
+        for p = 1:maximum(ids_k)
+            particle_flag = findin(ids_k, p)
+            fprob = π_k .* exp.(particle[k][p].ζ .- maximum(particle[k][p].ζ))
+            sstar[particle_flag, k] = sample(1:N, Weights(fprob), length(particle_flag))
         end
     end
 end
@@ -59,28 +59,28 @@ end
 
 
 function calc_ESS(logweight)
-    return sum(exp.(logweight .- maximum(logweight))) ^ 2 / sum(exp.(logweight .- maximum(logweight)) .^ 2)
+    return sum(exp.(logweight .- maximum(logweight))) .^ 2 / sum(exp.(logweight .- maximum(logweight)) .^ 2)
 end
 
 
 function draw_partstar(logweight, particles)
     pprob = cumsum(exp.(logweight .- maximum(logweight)))
-    pprob /= last(pprob)
-    u = collect(0:(1 / particles):(particles -1) / particles) .+ rand() / particles
-
+    pprob ./= last(pprob)
+    u = collect(0:(1 / particles):(particles -1) / particles) .+ (rand() / particles)
     return map(x -> indmax(pprob .> x), u)
 end
 
-function Φ_upweight!(logweight, particle_IDs, sstar, K, Φ)
+function Φ_upweight!(logweight::Array, sstar::Array, K::Int64, Φ::Array)
     if K == 1
         return logweight
     else
         Φ_lab = calculate_Φ_lab(K)
         for i = 1:Int64((K * (K - 1) * 0.5))
-            logweight += (sstar[:, Φ_lab[i, 1]] .== sstar[:, Φ_lab[i, 2]]) * log(1 + Φ[i])
+            logweight .+= (sstar[:, Φ_lab[i, 1]] .== sstar[:, Φ_lab[i, 2]]) .* log(1 + Φ[i])
         end
     end
 end
+
 
 function Φ_involvement(K::Int64, k::Int64)
     Φ_lab = calculate_Φ_lab(K)
@@ -89,22 +89,22 @@ function Φ_involvement(K::Int64, k::Int64)
 end
 
 
-function align_labels!(s, Φ, γ, N, K)
+function align_labels!(s::Array, Φ::Array, γ::Array, N::Int64, K::Int64)
     # current_labels = unique(s)
     if K == 1
         return
     else
         Φ_lab = calculate_Φ_lab(K)
         Φ_log = log.(1 + Φ)
-        for k = 1:K
-            if length(unique(s[:, k])) > 1
+        unique_s = unique(s)
+        #if length(unique_s) > 1
+            for k = 1:K
+                unique_sk = unique(s[:, k])
                 relevant_Φs = Φ_log[(Φ_lab[:, 1] .== k) .| (Φ_lab[:, 2] .== k)]
-                # relevant_Φs = sort(union(findin(Φ_lab[:, 1], k),  findin(Φ_lab[:, 2], k)))
-                for i in 1:(length(unique(s[:, k])) - 1)
-                    label = unique(s[:, k][i])[1]
-                    new_label = sample(unique(s[:, k])[(i+1):end])
-
-                    # new_label = rand(setdiff(unique(s[:, k]), label))
+                # for i in 1:(length(unique_sk))
+                for label in 1:N
+                    # label = unique_sk[i]
+                    new_label = sample(setdiff(unique_s, label))
 
                     label_ind = findin(s[:, k], label)
                     new_label_ind = findin(s[:, k], new_label)
@@ -125,6 +125,6 @@ function align_labels!(s, Φ, γ, N, K)
                     end
                 end
             end
-        end
+        # end
     end
 end
