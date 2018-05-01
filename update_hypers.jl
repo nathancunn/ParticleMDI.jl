@@ -1,8 +1,8 @@
-function update_v!(n_obs, Z)
+function update_v!(n_obs::Int64, Z::Float64)
     return rand(Gamma(n_obs, 1 / Z))
 end
 
-function update_M!(M, γ, K, N)
+function update_M!(M::Array, γ::Array, K::Int64, N::Int64)
     # Update the mass parameter
     prior = [2, 0.25]
     for k = 1:K
@@ -26,16 +26,16 @@ function update_M!(M, γ, K, N)
 end
 
 
-function update_Z(Z, Φ, Φ_index, Γ)
+function update_Z(Z::Float64, Φ::Array, Φ_index::Array, Γ::Array)
     # Update the normalising constant
     Z = Float64(sum(exp.(Φ_index * log.(1 + Φ) + sum(Γ, 2))))
     return(Z)
 end
 
-function update_γ!(γ, Φ, v, s, Φ_index, γ_combn, Γ, N, K)
-    α_0 = 1 / N
+function update_γ!(γ::Array, Φ::Array, v::Float64, s::Array, Φ_index::Array, γ_combn::Array, Γ::Array, N::Int64, K::Int64)
+    α_0 = 1.0 / N
     β_0 = 1.0
-    Φ_log = log.(1 + Φ)
+    Φ_log = log.(Φ .+ 1)
     α_star = Matrix{Float64}(N, K)
     for k = 1:K
         s_k = s[:, k]
@@ -45,7 +45,6 @@ function update_γ!(γ, Φ, v, s, Φ_index, γ_combn, Γ, N, K)
     end
     for k = 1:K
         γ_combn_k = γ_combn[:, k]
-
         for n = 1:N
             pertinent_rows = γ_combn_k .== n
             β_star = β_0 + v * sum(exp.(Φ_index[pertinent_rows, :] * Φ_log + sum(Γ[pertinent_rows, :], 2))) ./ γ[n, k]
