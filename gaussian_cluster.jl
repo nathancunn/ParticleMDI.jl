@@ -3,12 +3,6 @@
 ## d is dimension of data
 ## n_obs is the number of observations
 mutable struct gaussianCluster{n_obs, d, N}
-  # n::SVector{N, Int64}        ## number of obs in a cluster
-  # μ::MMatrix{N, d, Float64}   ## mean of observations in clusters
-  # Σ::MMatrix{N, d, Float64}   ## sum of observations in clusters
-  # λ::MMatrix{N, d,  Float64}
-  # β::MMatrix{N, d, Float64}
-  # c::SVector{n_obs, Int64}    ## The allocation vector
   n::Vector{Int64}
   μ::Matrix{Float64}   ## mean of observations in clusters
   Σ::Matrix{Float64}   ## sum of observations in clusters
@@ -17,13 +11,6 @@ mutable struct gaussianCluster{n_obs, d, N}
   c::Vector{Int64}    ## The allocation vector
   ζ::Vector{Float64}  ## logprob
   gaussianCluster{n_obs, d, N}() where {n_obs, d, N} = new(
-                                              # Int64(1),
-                                              # SVector{N, Int64}(zeros(Int64, N)),
-                                              # MMatrix{N, d, Float64}(zeros(Float64, N, d)),
-                                              # MMatrix{N, d, Float64}(zeros(Float64, N, d)),
-                                              # MMatrix{N, d, Float64}(ones(Float64, N, d)),
-                                              # MMatrix{N, d, Float64}(ones(Float64, N, d)),
-                                              # SVector{n_obs, Int64}(zeros(Int64, n_obs)),
                                               Vector{Int64}(zeros(Int64, N)),
                                               Matrix{Float64}(zeros(Float64, N, d)),
                                               Matrix{Float64}(zeros(Float64, N, d)),
@@ -34,42 +21,55 @@ mutable struct gaussianCluster{n_obs, d, N}
 end
 
 
-function calc_logprob!(obs::Vector{Float64}, cl::gaussianCluster{n_obs, d, N}) where {n_obs, d, N}
-  # cl.ζ .= sum(lgamma(0.75) - lgamma(0.25) + 0.5 * log(1 / (0.5 * π)) -
-  #                    0.75 * log.(1 + 2 * (obs) .^ 2), 1)[1]
-  cl.ζ .= sum(-1.310533 - 0.75 * log.(1.0 + 2 * obs .^ 2))
+function calc_logprob!(obs::Array{Float64}, cl::gaussianCluster{n_obs, d, N}) where {n_obs, d, N}
   # Identify all non-empty clusters
-  ind = Vector{Bool}(cl.n .!= 0)
-  n = cl.n[ind] .* 0.5 .+ 0.5
-  λ = cl.λ[ind, :]
+  cl.ζ[1] = - 1.310533
+  for q in 1:length(obs)
+      cl.ζ[1] -=  0.75 * log(1.0 + 2 * obs[q] ^ 2)
+  end
+  for n = 1:length(cl.ζ)
+    cl.ζ[n] = cl.ζ[1]
+  end
 
-  # Posterior predictive taking normal-gamma prior
-  cl.ζ[ind] = sum(lgamma.(n + 0.5) .-
-                      lgamma.(n) .+
-                      0.5 .* log.(λ ./ n) .-
-                      (n .+ 0.5) .* log.((1.0 ./ n) .*
-                      (- cl.μ[ind, :] .+ transpose(obs)) .^ 2.0 .* λ .+ 1.0) .-
-                      0.5723649429247001 ## 0.5 * log(π)
-                  , 2)
-    return
+  # cl.ζ .= Float64(sum(- 1.310533 .- 0.75 .* log.(1.0 + 2 .* obs .^ 2)))
+  # Iterate over clusters
+  for i in 1:length(cl.ζ)
+      if cl.n[i] > 0
+          @inbounds n = cl.n[i] * 0.5 + 0.5
+          cl.ζ[i] = length(obs) * (lgamma(n + 0.5) - lgamma(n) -
+                    0.5723649429247001)
+        # Iterate over features
+          for q in 1:length(obs)
+              cl.ζ[i] += 0.5 * Base.Math.JuliaLibm.log(cl.λ[i, q] / n) -
+                        (n + 0.5) * Base.Math.JuliaLibm.log((1.0 / n) *
+                        (obs[q] - cl.μ[i, q]) ^ 2.0 * cl.λ[i, q] + 1.0)
+
+          end
+      end
+  end
     return
 end
 
-
-function particle_add(obs, i, sstar::Int64, cl_old::gaussianCluster{n_obs, d, N}) where {n_obs, d, N}
-  cl = deepcopy(cl_old)
-    cl.β[sstar, :]  -= 0.5 .* (- 2.0 * cl.Σ[sstar, :] .* cl.μ[sstar, :] +
-                              cl.n[sstar] .* cl.μ[sstar, :] .^ 2) .+
-                      (cl.n[sstar] / (2.0 * (cl.n[sstar] + 1.0))) .* cl.μ[sstar, :] .^ 2
-    cl.n[sstar]     += Int64(1)
-    cl.Σ[sstar, :]  += obs
-    cl.μ[sstar, :]  = cl.Σ[sstar, :] ./ (cl.n[sstar] + 1.0)
-    cl.β[sstar, :]  += 0.5 * ((obs .^ 2) - 2.0 * cl.Σ[sstar, :] .* cl.μ[sstar, :] .+
-                        cl.n[sstar] .* cl.μ[sstar, :] .^ 2) .+
-                        (cl.n[sstar] / (2.0 * (cl.n[sstar] + 1.0))) .* cl.μ[sstar, :] .^ 2
-    cl.λ[sstar, :]    = ((0.5 * cl.n[sstar] + 0.5) .* (cl.n[sstar] + 1.0)) ./
-                      (cl.β[sstar, :] .* (cl.n[sstar] + 2.0))
-    cl.c[i]         = Int64(sstar)
+function particle_add(obs, i::Int64, sstar::Int64, cl_old::gaussianCluster{n_obs, d, N}) where {n_obs, d, N}
+    cl = deepcopy(cl_old)
+    for q = 1:length(obs)
+        cl.β[sstar, q]  -= 0.5 * (- 2.0 * cl.Σ[sstar, q] * cl.μ[sstar, q] +
+                               (cl.μ[sstar, q] ^ 2) * cl.n[sstar]) +
+                      (cl.n[sstar] / (2.0 * (cl.n[sstar] + 1.0))) * cl.μ[sstar, q] ^ 2
+    end
+    @inbounds cl.n[sstar]     += Int64(1)
+    @inbounds cl.Σ[sstar, :]  += obs
+    for q = 1:length(obs)
+    @inbounds cl.μ[sstar, q]  = cl.Σ[sstar, q] / (cl.n[sstar] + 1.0)
+    cl.β[sstar, q]  += 0.5 * ((obs[q] ^ 2) -
+                        2.0 * cl.Σ[sstar, q] * cl.μ[sstar, q] +
+                        cl.n[sstar] * cl.μ[sstar, q] ^ 2) +
+                        (cl.n[sstar] / (2.0 * (cl.n[sstar] + 1.0))) *
+                        cl.μ[sstar, q] ^ 2
+    @inbounds cl.λ[sstar, q]    = ((0.5 * cl.n[sstar] + 0.5) * (cl.n[sstar] + 1.0)) /
+                      (cl.β[sstar, q] * (cl.n[sstar] + 2.0))
+    end
+    @inbounds cl.c[i]         = Int64(sstar)
   return cl
 end
 
@@ -80,6 +80,7 @@ function particle_reset!(cl::gaussianCluster{n_obs, d, N}) where {n_obs, d, N}
   cl.Σ .= Float64(0)
   cl.n .= Int64(0)
   cl.c .= Int64(0)
+  cl.ζ .= Float64(0)
   return
 end
 
@@ -113,7 +114,12 @@ end
 
 
 function gaussian_normalise!(dataFile::Array)
-  μ = mapslices(median, dataFile, 1)
-  σ = 0.5 .* μ - mapslices(x -> quantile(x, 0.05), dataFile, 1) + eps(Float64)
-  dataFile = (dataFile .- μ) ./ σ
+  for d = 1:size(dataFile, 2)
+    # μ = mean(dataFile[:, d])
+    # σ = std(dataFile[:, d]) + eps(Float64)
+    μ = median(dataFile[:, d])
+    σ = 0.5 * μ - quantile(dataFile[:, d], 0.05) + eps(Float64)
+    dataFile[:, d] = (dataFile[:, d] .- μ) ./ σ
+  end
+  return
 end

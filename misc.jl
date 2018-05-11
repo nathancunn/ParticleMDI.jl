@@ -1,5 +1,5 @@
 function calculate_Φ_lab(K::Int64)
-    Φ_lab = K > 1 ? Matrix{Int64}(Int64(K * (K - 1) / 2), 2) : ones(1)
+    Φ_lab = K > 1 ? Matrix{Int64}(Int64(K * (K - 1) / 2), 2) : ones(Int64, 1, 2)
     if K > 1
         i = 1
         for k1 in 1:(K - 1)
@@ -24,29 +24,40 @@ end
 
 function update_logweight!(logweight::Array, particle::Array, particle_IDs::Array, Π::Array, K::Int64, N::Int64)
     for k = 1:K
-        particle_k = particle[k]
-        for p in unique(particle_IDs[:, k])
-            fprob = Π[:, k] .* exp.(particle_k[p].ζ .- maximum(particle_k[p].ζ))
-            logweight[findin(particle_IDs[:, k], p)] .+= log(sum(fprob)) + maximum(particle_k[p].ζ)
+        # π_k = Π[:, k]
+        # ids_k = particle_IDs[:, k]
+        for p in 1:maximum(particle_IDs[:, k])
+            @inbounds fprob = Π[:, k] .* exp.(particle[k][p].ζ .- maximum(particle[k][p].ζ))
+            @inbounds logweight[findin(particle_IDs[:, k], p)] .+= log(sum(fprob)) + maximum(particle[k][p].ζ)
         end
     end
     return
 end
 
-function draw_sstar!(sstar::Array, particle::Array, particle_IDs::Array, Π::Array, K::Int64, N::Int64)
+
+function draw_sstar!(sstar::Array, particle::Array, particle_IDs::Array, Π::Array, K::Int64, N::Int64, ancestor_weights::Vector, logweight::Vector, s)
+    fprob = Vector{Float64}(N)
     for k = 1:K
-        π_k = Π[:, k]
-        ids_k = particle_IDs[:, k]
-        for p = 1:maximum(ids_k)
-            particle_flag = findin(ids_k, p)
-            fprob = π_k .* exp.(particle[k][p].ζ .- maximum(particle[k][p].ζ))
-            sstar[particle_flag, k] = sample(1:N, Weights(fprob), length(particle_flag))
+        for p = 1:maximum(particle_IDs[:, k])
+            particle_flag = findin(particle_IDs[:, k], p)
+            for n = 1:N
+                @inbounds fprob[n] = Π[n, k] * exp(particle[k][p].ζ[n] - maximum(particle[k][p].ζ))
+            end
+            # Draw sstar
+            @inbounds sstar[particle_flag, k] = sample(1:N, Weights(fprob), length(particle_flag))
+            # Update ancestor weights
+            ancestor_weights[particle_flag[1]] += logweight[particle_flag[1]] + log(fprob[s[k]] + eps(Float64))
+            # Update logweight
+            logweight[particle_flag[1]] += log(sum(fprob)) + maximum(particle[k][p].ζ)
         end
+        ancestor_weights = ancestor_weights[particle_IDs[:, k]]
+        logweight = logweight[particle_IDs[:, k]]
     end
+    return
 end
 
 
-function update_particleIDs!(particle_IDs, sstar, K, particles, N)
+function update_particleIDs(particle_IDs, sstar, K, particles, N)
     return ID_to_canonical!(particle_IDs * (particles * N) + sstar)
 end
 
@@ -62,13 +73,21 @@ function calc_ESS(logweight)
     return sum(exp.(logweight .- maximum(logweight))) .^ 2 / sum(exp.(logweight .- maximum(logweight)) .^ 2)
 end
 
-
 function draw_partstar(logweight, particles)
+    u = rand() / particles
     pprob = cumsum(exp.(logweight .- maximum(logweight)))
-    pprob ./= last(pprob)
-    u = collect(0:(1 / particles):(particles -1) / particles) .+ (rand() / particles)
-    return map(x -> indmax(pprob .> x), u)
+    partstar = zeros(Int64, particles)
+    i = Int64(0)
+    for p = 1:particles
+        while pprob[p] / last(pprob) >= u
+            u += 1 / particles
+            i += 1
+            partstar[i] = p
+        end
+    end
+    return partstar
 end
+
 
 function Φ_upweight!(logweight::Array, sstar::Array, K::Int64, Φ::Array)
     if K == 1
@@ -76,9 +95,10 @@ function Φ_upweight!(logweight::Array, sstar::Array, K::Int64, Φ::Array)
     else
         Φ_lab = calculate_Φ_lab(K)
         for i = 1:Int64((K * (K - 1) * 0.5))
-            logweight .+= (sstar[:, Φ_lab[i, 1]] .== sstar[:, Φ_lab[i, 2]]) .* log(1 + Φ[i])
+            logweight .+= (sstar[:, Φ_lab[i, 1]] .== sstar[:, Φ_lab[i, 2]]) .* transpose(log(1 + Φ[i]))
         end
     end
+    return
 end
 
 
@@ -90,7 +110,6 @@ end
 
 
 function align_labels!(s::Array, Φ::Array, γ::Array, N::Int64, K::Int64)
-    # current_labels = unique(s)
     if K == 1
         return
     else
@@ -103,7 +122,6 @@ function align_labels!(s::Array, Φ::Array, γ::Array, N::Int64, K::Int64)
                 relevant_Φs = Φ_log[(Φ_lab[:, 1] .== k) .| (Φ_lab[:, 2] .== k)]
                 # for i in 1:(length(unique_sk))
                 for label in 1:N
-                    # label = unique_sk[i]
                     new_label = sample(setdiff(unique_s, label))
 
                     label_ind = findin(s[:, k], label)
@@ -127,4 +145,52 @@ function align_labels!(s::Array, Φ::Array, γ::Array, N::Int64, K::Int64)
             end
         # end
     end
+end
+
+
+function ancestor_sampling!(logweight, particle_IDs, particle, particles)
+    # This step alters the ID of the reference trajectory
+    # Porabilistically pick the particle most likely to
+    # mutate to the reference path in this step
+    # and assign that ID to the reference trajectory
+    # Ref particle mutates to reference path but its history
+    # changes
+    ancestor_weights = zeros(Float64, particles) + logweight
+    for k = 1:K
+        for p = 1:maximum(particle_IDs[:, k])
+            # println(log((Π[:, k] .* exp.(particle[k][p].ζ .- maximum(particle[k][p].ζ)))[s[i, k]]) + eps(Float64))
+            ancestor_weights[findin(particle_IDs[:, k], p)] .+= log.((Π[:, k] .* exp.(particle[k][p].ζ .- maximum(particle[k][p].ζ)))[s[i, k]] + eps(Float64))
+        end
+    end
+    ancestor_index = sample(1:particles, Weights(exp.(ancestor_weights .- maximum(ancestor_weights))))
+    #for k = 1:K
+    #         particle_IDs[1, k] .= particle_IDs[ancestor_index, k]
+    #    end
+    return ancestor_weights
+
+end
+
+function ancestor_sampling_2!(logweight, particle_IDs, particle, particles)
+    # This step alters the ID of the reference trajectory
+    # Porabilistically pick the particle most likely to
+    # mutate to the reference path in this step
+    # and assign that ID to the reference trajectory
+    # Ref particle mutates to reference path but its history
+    # changes
+    ancestor_weights = zeros(Float64, particles) + logweight
+    for k = 1:K
+        for p = 1:particles
+            ancestor_weights[p] += log((Π[s[i, k], k] * exp(particle[k][p].ζ[s[i, k]] - maximum(particle[k][p].ζ))) +eps(Float64))
+        end
+    end
+    max_ancestor_weight = maximum(ancestor_weights)
+    for p = 1:particles
+        ancestor_weights[p] = exp(ancestor_weights[p] - max_ancestor_weight)
+    end
+    ancestor_index = sample(1:particles, Weights(ancestor_weights))
+    #for k = 1:K
+    #         particle_IDs[1, k] .= particle_IDs[ancestor_index, k]
+    #    end
+    return ancestor_weights
+
 end
