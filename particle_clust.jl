@@ -2,6 +2,7 @@ using CSVFiles
 using Distributions
 using Iterators
 using StatsBase
+using Yeppp
 
 include("gaussian_cluster.jl")
 include("update_hypers.jl")
@@ -10,9 +11,9 @@ include("misc.jl")
 
 function pmdi(dataFiles, dataTypes, N::Int64, particles::Int64,
     ρ::Float64, iter::Int64, outputFile::String, initialise::Bool, output_freq::Int64)
-    K       = length(dataFiles) # No. of datasets
-    n_obs   = size(dataFiles[1])[1]
-    d       = [size(dataFiles[k])[2] for k = 1:K]
+    K       = Int64(length(dataFiles)) # No. of datasets
+    n_obs   = Int64(size(dataFiles[1])[1])
+    d       = [Int64(size(dataFiles[k])[2]) for k = 1:K]
     @assert length(dataTypes) == K
     @assert all(x->x==n_obs, [size(dataFiles[k])[1] for k = 1:K])
 
@@ -26,9 +27,9 @@ function pmdi(dataFiles, dataTypes, N::Int64, particles::Int64,
     end
 
     # Initialise the hyperparameters
-    M = ones(K) * 2 # Mass parameter
+    M = ones(K) .* 2 # Mass parameter
     γ = rand(Gamma(2 / N, 1), N, K) .+ eps(Float64) # Component weights
-    Φ = K > 1 ? rand(Gamma(1, 5), Int64(K * (K - 1) *0.5)) : zeros(1) # Dataset concordance measure
+    Φ = K > 1 ? rand(Gamma(1, 5), Int64(K * (K - 1) * 0.5)) : zeros(1) # Dataset concordance measure
 
     # Initialise the allocations randomly according to γ
     s = Matrix{Int64}(zeros(n_obs, K))
@@ -43,7 +44,7 @@ function pmdi(dataFiles, dataTypes, N::Int64, particles::Int64,
     end
 
     # Which Φ value is activated by each of the above combinations
-    Φ_index = K > 1 ? Matrix{Int64}(N ^ K, Int64(K * (K - 1) / 2)) : ones(Matrix{Bool}(N, 1), Int64)
+    Φ_index = K > 1 ? Matrix{Int64}(N ^ K, Int64(K * (K - 1) / 2)) : ones(Matrix{Int64}(N, 1), Int64)
     if K > 1
         i = 1
         for k1 in 1:(K - 1)
@@ -58,9 +59,10 @@ function pmdi(dataFiles, dataTypes, N::Int64, particles::Int64,
     for k = 1:K
         Γ[:, k] = log.(γ[:, k][γ_combn[:, k]])
     end
-    Z = update_Z(Float64(0), Φ, Φ_index, Γ)
+    Z = update_Z(Φ, Φ_index, Γ)
 
     logweight = zeros(Float64, particles)
+    ancestor_weights = zeros(Float64, particles)
     sstar = zeros(Matrix{Int64}(particles, K), Int64)
 
     # Initialise the particles
@@ -71,24 +73,22 @@ function pmdi(dataFiles, dataTypes, N::Int64, particles::Int64,
     end
 
     # Save information to file
-    if K > 1
-        out = vcat(map(x -> @sprintf("mass_%d", x), 1:K), map((x, y) -> @sprintf("phi_%d_%d", x, y), calculate_Φ_lab(K)[:, 1], calculate_Φ_lab(K)[:, 2]), map((x, y) -> @sprintf("K%d_n%d", x, y), repeat(1:K, inner = n_obs), repeat(1:n_obs, outer = K)))
-    else
-        out = vcat(map(x -> @sprintf("mass_%d", x), 1:K), map((x, y) -> @sprintf("K%d_n%d", x, y), repeat(1:K, inner = n_obs), repeat(1:n_obs, outer = K)))
-    end
+    out = vcat(map(x -> @sprintf("MassParameter_%d", x), 1:K), map((x, y) -> @sprintf("phi_%d_%d", x, y), calculate_Φ_lab(K)[:, 1], calculate_Φ_lab(K)[:, 2]), map((x, y) -> @sprintf("K%d_n%d", x, y), repeat(1:K, inner = n_obs), repeat(1:n_obs, outer = K)))
     out =  reshape(out, 1, length(out))
     writecsv(outputFile, out)
-
     fileid = open(outputFile, "a")
+    writecsv(fileid, [M; Φ; s[1:(n_obs * K)]]')
+
 
     for it in 1:iter
         # Reset particles and IDs
         for k = 1:K
-            particle_reset!(particle[k][1])
+                particle_reset!(particle[k][1])
         end
         particle_IDs .= Int64(1)
+        #println(Z - sum(γ))
 
-        v = update_v!(n_obs, Z)
+        v = update_v(n_obs, Z)
         update_M!(M, γ, K, N)
 
         Π = γ ./ sum(γ, 1)
@@ -103,22 +103,19 @@ function pmdi(dataFiles, dataTypes, N::Int64, particles::Int64,
 
         ## The conditional particle filter
         for i in order_obs[Int64(floor(ρ * n_obs) + 1):n_obs]
-            for k = 1:K
-                # for p in unique(particle_IDs[:, k])
-                obs = dataFiles[k][i, :]
+
+             for k = 1:K
                 for p in 1:maximum(particle_IDs[:, k])
-                    calc_logprob!(obs, particle[k][p])
+                    @inbounds calc_logprob!(dataFiles[k][i, :], particle[k][p])
                 end
             end
 
-            # calc_fprob!(fprob, logprob, particle_IDs, K, Π)
-            update_logweight!(logweight, particle, particle_IDs, Π, K, N)
+            # update_logweight!(logweight, particle, particle_IDs, Π, K, N)
+            ancestor_weights .= 0.0
+            draw_sstar!(sstar, particle, particle_IDs, Π, K, N, ancestor_weights, logweight, s[i, :])
 
-            draw_sstar!(sstar, particle, particle_IDs, Π, K, N)
             # Set first particle to reference trajectory
-            for k = 1:K
-                sstar[1, k] = s[i, k]
-            end
+            sstar[1, :] = s[i, :]
 
             #########################
             # Ancestor sampling step
@@ -126,20 +123,20 @@ function pmdi(dataFiles, dataTypes, N::Int64, particles::Int64,
             # Take the fprob from each data at the ref trajectory's value
             # Add this to the particles current weight
             # Multinomially select index according to this
-            ancestor_weights = zeros(Float64, particles) + logweight
+            # ancestor_weights = zeros(Float64, particles) + logweight
+            # for k = 1:K
+            #    for p = 1:maximum(particle_IDs[:, k])
+            #        # println(log((Π[:, k] .* exp.(particle[k][p].ζ .- maximum(particle[k][p].ζ)))[s[i, k]]) + eps(Float64))
+            #        ancestor_weights[findin(particle_IDs[:, k], p)] .+= log.((Π[:, k] .* exp.(particle[k][p].ζ .- maximum(particle[k][p].ζ)))[s[i, k]]) + eps(Float64)
+            #    end
+            # end
+            ancestor_index = sample(1:particles, Weights(exp.(ancestor_weights .- maximum(ancestor_weights))))
             for k = 1:K
-                for p = unique(particle_IDs[:, k])
-                    # println(log((Π[:, k] .* exp.(particle[k][p].ζ .- maximum(particle[k][p].ζ)))[s[i, k]]) + eps(Float64))
-                    ancestor_weights[findin(p, particle_IDs)] += log.((Π[:, k] .* exp.(particle[k][p].ζ .- maximum(particle[k][p].ζ)))[s[i, k]] + eps(Float64))
-                end
-            end
-            ancestor_index = sample(1:particles, Weights(ancestor_weights), 1)[1]
-            for k = 1:K
-                particle_IDs[1, k] .= particle_IDs[ancestor_index, k]
+                 particle_IDs[1, k] .= particle_IDs[ancestor_index, k]
             end
 
             # Update the particle IDs
-            new_particle_IDs = update_particleIDs!(particle_IDs, sstar, K, particles, N)
+            new_particle_IDs = update_particleIDs(particle_IDs, sstar, K, particles, N)
 
 
             # Add observation to cluster
@@ -154,39 +151,45 @@ function pmdi(dataFiles, dataTypes, N::Int64, particles::Int64,
                     particle[k][p] = particle_add(obs, i, sstar[p_ind, k], particle[k][particle_IDs[p_ind, k]])
                 end
             end
+            # println(particle_IDs)
+            # println(new_particle_IDs)
 
             particle_IDs = deepcopy(new_particle_IDs)
-             Φ_upweight!(logweight, sstar, K, Φ)
+            Φ_upweight!(logweight, sstar, K, Φ)
 
 
             if calc_ESS(logweight) <= 0.5 * particles
                 partstar = draw_partstar(logweight, particles)
-                partstar[1] = 1
+                partstar[1] = Int64(1)
                 logweight .= 1.0
-
                 for k = 1:K
-                        particle_IDs[:, k] = particle_IDs[partstar, k]
+                    particle_IDs[:, k] = particle_IDs[partstar, k]
                 end
+                sstar .= Int64(1)
+                particle_IDs = update_particleIDs(particle_IDs, 1, K, particles, N)
             end
         end
         # Select a single particle
-        p_star = sample(1:particles, Weights(logweight))
+        p_star = sample(1:particles, Weights(exp.(logweight .- maximum(logweight))))
+        logweight .= 1.0
             for k = 1:K
-                s[:, k] = particle[k][particle_IDs[:, k][p_star]].c
+                @inbounds s[:, k] = particle[k][particle_IDs[p_star, k]].c
+                # println(s)
             end
             # Match up labels across datasets
+            # println(s)
             align_labels!(s, Φ, γ, N, K)
             update_Φ!(Φ, v, s, Φ_index, γ, K, Γ)
             update_γ!(γ, Φ, v, s, Φ_index, γ_combn, Γ, N, K)
+            # println(γ)
+
             for k = 1:K
                 Γ[:, k] = log.(γ[γ_combn[:, k], k])
             end
-            Z = update_Z(Float64(0), Φ, Φ_index, Γ)
-            if K > 1
-                writecsv(fileid, [M; Φ; s[1:(n_obs * K)]]')
-            else
-                writecsv(fileid, [M; s[1:(n_obs * K)]]')
-            end
+
+            Z = update_Z(Φ, Φ_index, Γ)
+            writecsv(fileid, [M; Φ; s[1:(n_obs * K)]]')
+
         end
         close(fileid)
         return s
