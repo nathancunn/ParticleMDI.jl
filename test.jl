@@ -20,6 +20,11 @@ end
 @time out = pmdi(dataFiles, dataTypes, 10, 32, 0.99, 1, "output/sim.csv", true, 1)
 @time out = pmdi(dataFiles, dataTypes, 10, 32, 0.25, 1000, "output/sim.csv", true, 1)
 
+dataMult = [[rand(Binomial(10, 0.1), 50, 4); rand(Binomial(20, 0.9), 50, 4)] .+ 1 for k = 1:K]
+dataTypes = [multinomialCluster for k = 1:K]
+@time out = pmdi(dataMult, dataTypes, 10, 32, 0.99, 1, "output/sim.csv", true, 1)
+@time out = pmdi(dataMult, dataTypes, 10, 32, 0.25, 10, "output/sim.csv", true, 1)
+
 using RDatasets
 data = [Matrix(dataset("datasets", "iris")[:, 1:4])]
 gaussian_normalise!(data[1])

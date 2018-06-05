@@ -4,6 +4,8 @@ using Iterators
 using StatsBase
 
 include("gaussian_cluster.jl")
+include("multinomial_cluster.jl")
+
 include("update_hypers.jl")
 include("misc.jl")
 
@@ -64,18 +66,11 @@ function pmdi(dataFiles, dataTypes, N::Int64, particles::Int64,
     ancestor_weights = zeros(Float64, particles)
     sstar = zeros(Matrix{Int64}(particles, K), Int64)
 
-    n_levels = zeros(Float64, K)
-    for k = 1:K
-        if dataTypes[k] == "multinomialCluster"
-            n_levels[k] = maximum(dataFiles[k])
-        end
-    end
-
     # Initialise the particles
-    particle = [Vector{dataTypes[k]{n_obs, d[k], N, n_levels[k]}}(particles) for k = 1:K]
+    particle = [Vector{dataTypes[k]}(particles) for k = 1:K]
     particle_IDs = ones(Matrix{Int64}(particles, K), Int64)
     for k = 1:K
-        particle[k][1] = dataTypes[k]{n_obs, d[k], N, n_levels[k]}()
+        particle[k][1] = dataTypes[k](dataFiles[k], N)
     end
 
     # Save information to file

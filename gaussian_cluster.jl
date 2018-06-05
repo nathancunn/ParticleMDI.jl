@@ -3,7 +3,7 @@
 ## d is dimension of data
 ## n_obs is the number of observations
 ## n_levels is the number of levels, used in multinomial
-mutable struct gaussianCluster{n_obs, d, N, n_levels}
+mutable struct gaussianCluster
   n::Vector{Int64}
   μ::Matrix{Float64}   ## mean of observations in clusters
   Σ::Matrix{Float64}   ## sum of observations in clusters
@@ -11,24 +11,23 @@ mutable struct gaussianCluster{n_obs, d, N, n_levels}
   β::Matrix{Float64}
   c::Vector{Int64}    ## The allocation vector
   ζ::Vector{Float64}  ## logprob
-  gaussianCluster{n_obs, d, N, n_levels}() where {n_obs, d, N, n_levels} = new(
-                                              Vector{Int64}(zeros(Int64, N)),
-                                              Matrix{Float64}(zeros(Float64, N, d)),
-                                              Matrix{Float64}(zeros(Float64, N, d)),
-                                              Matrix{Float64}(ones(Float64, N, d)),
-                                              Matrix{Float64}(ones(Float64, N, d)),
-                                              Vector{Int64}(zeros(Int64, n_obs)),
-                                              Vector{Float64}(zeros(Float64, N)))
+  gaussianCluster(dataFile::Array, N::Int64) =  new(Vector{Int64}(zeros(Int64, N)),
+                                      Matrix{Float64}(zeros(Float64, N, size(dataFile, 2))),
+                                      Matrix{Float64}(zeros(Float64, N, size(dataFile, 2))),
+                                      Matrix{Float64}(ones(Float64, N, size(dataFile, 2))),
+                                      Matrix{Float64}(ones(Float64, N, size(dataFile, 2))),
+                                      Vector{Int64}(zeros(Int64, size(dataFile, 1))),
+                                      Vector{Float64}(zeros(Float64, N)))
 end
 
 
-function calc_logprob!(obs::Array{Float64}, cl::gaussianCluster{n_obs, d, N, n_levels}) where {n_obs, d, N, n_levels}
+function calc_logprob!(obs::Array{Float64}, cl::gaussianCluster)
   # Identify all non-empty clusters
   cl.ζ[1] = - 1.310533
    for q in 1:length(obs)
       cl.ζ[1] -=  0.75 * log(1.0 + 2 * obs[q] ^ 2)
   end
-  @simd for n = 1:length(cl.ζ)
+  @simd for n = 2:length(cl.ζ)
     cl.ζ[n] = cl.ζ[1]
   end
 
@@ -51,7 +50,7 @@ function calc_logprob!(obs::Array{Float64}, cl::gaussianCluster{n_obs, d, N, n_l
     return
 end
 
-function particle_add!(obs, i::Int64, sstar::Int64, cl::gaussianCluster{n_obs, d, N, n_levels}) where {n_obs, d, N, n_levels}
+function particle_add!(obs::Array{Float64}, i::Int64, sstar::Int64, cl::gaussianCluster)
   @simd for q = 1:length(obs)
       cl.β[sstar, q]  -= 0.5 * (- 2.0 * cl.Σ[sstar, q] * cl.μ[sstar, q] +
                              (cl.μ[sstar, q] ^ 2) * cl.n[sstar]) +
@@ -73,7 +72,7 @@ function particle_add!(obs, i::Int64, sstar::Int64, cl::gaussianCluster{n_obs, d
   return
 end
 
-function particle_reset!(cl::gaussianCluster{n_obs, d, N}) where {n_obs, d, N, n_levels}
+function particle_reset!(cl::gaussianCluster)
   cl.β .= Float64(1)
   cl.λ .= Float64(1)
   cl.μ .= Float64(0)
