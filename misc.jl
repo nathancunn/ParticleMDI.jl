@@ -14,8 +14,8 @@ end
 
 # Not needed anymore
 function calc_fprob!(fprob::Array, logprob, particle_IDs, K, Π)
-    for k = 1:K
-        for p in unique(particle_IDs[:, k])
+    @simd for k = 1:K
+        @simd for p in unique(particle_IDs[:, k])
             fprob[:, p, k] = Π[:, k] .* exp.(logprob[:, p, k] .- maximum(logprob[:, p, k]))
         end
     end
@@ -23,12 +23,12 @@ function calc_fprob!(fprob::Array, logprob, particle_IDs, K, Π)
 end
 
 function update_logweight!(logweight::Array, particle::Array, particle_IDs::Array, Π::Array, K::Int64, N::Int64)
-    for k = 1:K
+    @simd for k = 1:K
         # π_k = Π[:, k]
         # ids_k = particle_IDs[:, k]
         for p in 1:maximum(particle_IDs[:, k])
             @inbounds fprob = Π[:, k] .* exp.(particle[k][p].ζ .- maximum(particle[k][p].ζ))
-            @inbounds logweight[findin(particle_IDs[:, k], p)] .+= log(sum(fprob)) + maximum(particle[k][p].ζ)
+            @inbounds logweight[findindices(particle_IDs[:, k], p)] .+= log(sum(fprob)) + maximum(particle[k][p].ζ)
         end
     end
     return
@@ -39,19 +39,18 @@ function draw_sstar!(sstar::Array, particle::Array, particle_IDs::Array, Π::Arr
     fprob = Vector{Float64}(N)
     for k = 1:K
         for p = 1:maximum(particle_IDs[:, k])
-            particle_flag = findin(particle_IDs[:, k], p)
-            for n = 1:N
-                @inbounds fprob[n] = Π[n, k] * exp(particle[k][p].ζ[n] - maximum(particle[k][p].ζ))
+            particle_flag = findindices(particle_IDs[:, k], p)
+            @simd for n = 1:N
+                @fastmath @inbounds fprob[n] = Π[n, k] * exp(particle[k][p].ζ[n] - maximum(particle[k][p].ζ))
             end
             # Draw sstar
-            @inbounds sstar[particle_flag, k] = sample(1:N, Weights(fprob), length(particle_flag))
+            @inbounds @fastmath sstar[particle_flag, k] = sample(1:N, Weights(fprob), length(particle_flag))
             # Update ancestor weights
-            ancestor_weights[particle_flag[1]] += logweight[particle_flag[1]] + log(fprob[s[k]] + eps(Float64))
+            @inbounds @fastmath ancestor_weights[particle_flag] .+= log(fprob[s[k]] + eps(Float64))
             # Update logweight
-            logweight[particle_flag[1]] += log(sum(fprob)) + maximum(particle[k][p].ζ)
+            @inbounds @fastmath logweight[particle_flag] .+= log(sum(fprob)) + maximum(particle[k][p].ζ)
         end
-        ancestor_weights = ancestor_weights[particle_IDs[:, k]]
-        logweight = logweight[particle_IDs[:, k]]
+        # ancestor_weights += logweight
     end
     return
 end
@@ -121,25 +120,28 @@ function align_labels!(s::Array, Φ::Array, γ::Array, N::Int64, K::Int64)
                 unique_sk = unique(s[:, k])
                 relevant_Φs = Φ_log[(Φ_lab[:, 1] .== k) .| (Φ_lab[:, 2] .== k)]
                 # for i in 1:(length(unique_sk))
-                for label in 1:N
-                    new_label = sample(setdiff(unique_s, label))
+                for label in unique_sk
+                    # new_label = sample(setdiff(unique_s, label))
+                    for new_label in setdiff(unique_s, label)
+                        label_ind = findindices(s[:, k], label)
+                        new_label_ind = findindices(s[:, k], new_label)
 
-                    label_ind = findin(s[:, k], label)
-                    new_label_ind = findin(s[:, k], new_label)
+                        label_rows      = s[label_ind, setdiff(1:K, k)]
+                        new_label_rows  = s[new_label_ind, setdiff(1:K, k)]
+                        log_phi_sum     = sum(sum(label_rows .== label, 1) .* relevant_Φs + sum(new_label_rows .== new_label, 1) .* relevant_Φs)
+                        log_phi_sum_swap = sum(sum(label_rows .== new_label, 1) .* relevant_Φs + sum(new_label_rows .== label, 1) .* relevant_Φs)
 
-                    label_rows      = s[label_ind, setdiff(1:K, k)]
-                    new_label_rows  = s[new_label_ind, setdiff(1:K, k)]
-                    log_phi_sum     = sum(sum(label_rows .== label, 1) .* relevant_Φs + sum(new_label_rows .== new_label, 1) .* relevant_Φs)
-                    log_phi_sum_swap = sum(sum(label_rows .== new_label, 1) .* relevant_Φs + sum(new_label_rows .== label, 1) .* relevant_Φs)
+                        accept = min(1, exp(log_phi_sum_swap - log_phi_sum))
 
-                    accept = min(1, exp(log_phi_sum_swap - log_phi_sum))
-
-                    if rand() < accept
-                        s[label_ind, k]        .= new_label
-                        s[new_label_ind, k]    .= label
-                        γ_temp = γ[new_label, k]
-                        γ[new_label, k] = γ[label, k]
-                        γ[label, k] = γ_temp
+                        if rand() < accept
+                            # display(s)
+                            s[label_ind, k]        .= new_label
+                            s[new_label_ind, k]    .= label
+                            # display(s)
+                            γ_temp = γ[new_label, k]
+                            γ[new_label, k] = γ[label, k]
+                            γ[label, k] = γ_temp
+                        end
                     end
                 end
             end
@@ -159,7 +161,7 @@ function ancestor_sampling!(logweight, particle_IDs, particle, particles)
     for k = 1:K
         for p = 1:maximum(particle_IDs[:, k])
             # println(log((Π[:, k] .* exp.(particle[k][p].ζ .- maximum(particle[k][p].ζ)))[s[i, k]]) + eps(Float64))
-            ancestor_weights[findin(particle_IDs[:, k], p)] .+= log.((Π[:, k] .* exp.(particle[k][p].ζ .- maximum(particle[k][p].ζ)))[s[i, k]] + eps(Float64))
+            ancestor_weights[findindices(particle_IDs[:, k], p)] .+= log.((Π[:, k] .* exp.(particle[k][p].ζ .- maximum(particle[k][p].ζ)))[s[i, k]] + eps(Float64))
         end
     end
     ancestor_index = sample(1:particles, Weights(exp.(ancestor_weights .- maximum(ancestor_weights))))
@@ -193,4 +195,36 @@ function ancestor_sampling_2!(logweight, particle_IDs, particle, particles)
     #    end
     return ancestor_weights
 
+end
+
+
+function ID_match(particle_IDs, new_particle_IDs, particles::Int64)
+    # Find the maximum new_particle_ID corresponding
+    # to a particular particle_ID
+    out = Array{Int64}(particles)
+    for u in unique(particle_IDs)
+        out[u] = minimum(new_particle_IDs[findindices(particle_IDs, u)])
+    end
+    return out
+end
+
+
+function findindex(A, b)
+    # Find first occurrence of b in A
+    for (i,a) in enumerate(A)
+        if a == b
+            return i
+        end
+    end
+end
+
+function findindices(A, b)
+    # Find all occurrences of b in A
+    out = Int64[]
+    for (i, a) in enumerate(A)
+        if a == b
+            push!(out, i)
+        end
+    end
+    return out
 end

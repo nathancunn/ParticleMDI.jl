@@ -2,7 +2,6 @@ using CSVFiles
 using Distributions
 using Iterators
 using StatsBase
-using Yeppp
 
 include("gaussian_cluster.jl")
 include("update_hypers.jl")
@@ -20,11 +19,11 @@ function pmdi(dataFiles, dataTypes, N::Int64, particles::Int64,
     # Normalise any Gaussian datasets
     ## Doing this as it's done in the MATLAB version
     ## Prefer to leave normalisation to user
-    for k = 1:K
-        if dataTypes[k] == "gaussianCluster"
-            gaussian_normalise!(dataFiles[k])
-        end
-    end
+    # for k = 1:K
+    #     if dataTypes[k] == "gaussianCluster"
+    #         gaussian_normalise!(dataFiles[k])
+    #     end
+    # end
 
     # Initialise the hyperparameters
     M = ones(K) .* 2 # Mass parameter
@@ -65,11 +64,18 @@ function pmdi(dataFiles, dataTypes, N::Int64, particles::Int64,
     ancestor_weights = zeros(Float64, particles)
     sstar = zeros(Matrix{Int64}(particles, K), Int64)
 
+    n_levels = zeros(Float64, K)
+    for k = 1:K
+        if dataTypes[k] == "multinomialCluster"
+            n_levels[k] = maximum(dataFiles[k])
+        end
+    end
+
     # Initialise the particles
-    particle = [Vector{dataTypes[k]{n_obs, d[k], N}}(particles) for k = 1:K]
+    particle = [Vector{dataTypes[k]{n_obs, d[k], N, n_levels[k]}}(particles) for k = 1:K]
     particle_IDs = ones(Matrix{Int64}(particles, K), Int64)
     for k = 1:K
-        particle[k][1] = dataTypes[k]{n_obs, d[k], N}()
+        particle[k][1] = dataTypes[k]{n_obs, d[k], N, n_levels[k]}()
     end
 
     # Save information to file
@@ -94,16 +100,15 @@ function pmdi(dataFiles, dataTypes, N::Int64, particles::Int64,
         Π = γ ./ sum(γ, 1)
 
         order_obs = randperm(n_obs)
-
+        # Generate the new
         for k = 1:K
             for i in order_obs[1:Int64(floor(ρ * n_obs))]
-                particle[k][1] = particle_add(dataFiles[k][i, :], i, s[i, k], particle[k][1])
+                particle_add!(dataFiles[k][i, :], i, s[i, k], particle[k][1])
             end
         end
 
         ## The conditional particle filter
         for i in order_obs[Int64(floor(ρ * n_obs) + 1):n_obs]
-
              for k = 1:K
                 for p in 1:maximum(particle_IDs[:, k])
                     @inbounds calc_logprob!(dataFiles[k][i, :], particle[k][p])
@@ -111,7 +116,7 @@ function pmdi(dataFiles, dataTypes, N::Int64, particles::Int64,
             end
 
             # update_logweight!(logweight, particle, particle_IDs, Π, K, N)
-            ancestor_weights .= 0.0
+            ancestor_weights .= logweight .+ 0
             draw_sstar!(sstar, particle, particle_IDs, Π, K, N, ancestor_weights, logweight, s[i, :])
 
             # Set first particle to reference trajectory
@@ -134,6 +139,7 @@ function pmdi(dataFiles, dataTypes, N::Int64, particles::Int64,
             for k = 1:K
                  particle_IDs[1, k] .= particle_IDs[ancestor_index, k]
             end
+            logweight[1] = logweight[ancestor_index]
 
             # Update the particle IDs
             new_particle_IDs = update_particleIDs(particle_IDs, sstar, K, particles, N)
@@ -142,13 +148,27 @@ function pmdi(dataFiles, dataTypes, N::Int64, particles::Int64,
             # Add observation to cluster
             for k = 1:K
                 obs = dataFiles[k][i, :]
+                id_match = ID_match(particle_IDs[:, k], new_particle_IDs[:, k], particles)
                 # Doing this in reverse order means we don't need to copy the particles
                 # Selecting the max value is quicker than checking for unique IDs
                 # If the largest ID is n, then all IDs 1:n exist
                 # If new_ID_1 > new_ID_2, then ID_2 ≧ ID_1
                 for p in maximum(new_particle_IDs[:, k]):-1:1
-                    p_ind = findin(new_particle_IDs[:, k], p)[1]
-                    particle[k][p] = particle_add(obs, i, sstar[p_ind, k], particle[k][particle_IDs[p_ind, k]])
+                    # p_inds = findin(new_particle_IDs[:, k], p)[1]
+                    # p_ind = p_inds[1]
+                    # p_ind = findfirst(x -> x == p, new_particle_IDs[:, k])
+                    p_ind = findindex(new_particle_IDs[:, k], p)
+                    if p == particle_IDs[p_ind, k]
+                        particle_add!(obs, i, sstar[p_ind, k], particle[k][particle_IDs[p_ind, k]])
+                    elseif p == id_match[particle_IDs[p_ind, k]]
+                        particle_add!(obs, i, sstar[p_ind, k], particle[k][particle_IDs[p_ind, k]])
+                        particle[k][p] = particle[k][particle_IDs[p_ind, k]]
+                    else
+                        particle[k][p] = deepcopy(particle[k][particle_IDs[p_ind, k]])
+                        # particle[k][p] = particle_copy(particle[k][particle_IDs[p_ind, k]])
+                        particle_add!(obs, i, sstar[p_ind, k], particle[k][p])
+                        # particle[k][p] = particle_add(obs, i, sstar[p_ind, k], particle[k][particle_IDs[p_ind, k]])
+                    end
                 end
             end
             # println(particle_IDs)
@@ -177,11 +197,10 @@ function pmdi(dataFiles, dataTypes, N::Int64, particles::Int64,
                 # println(s)
             end
             # Match up labels across datasets
-            # println(s)
             align_labels!(s, Φ, γ, N, K)
+            # s[:, 1] = 11 - s[:, 2]
             update_Φ!(Φ, v, s, Φ_index, γ, K, Γ)
             update_γ!(γ, Φ, v, s, Φ_index, γ_combn, Γ, N, K)
-            # println(γ)
 
             for k = 1:K
                 Γ[:, k] = log.(γ[γ_combn[:, k], k])

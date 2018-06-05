@@ -72,7 +72,7 @@ function update_Φ!(Φ, v::Float64, s, Φ_index, γ, K::Int64, Γ)
             # Get relevant terms in the normalisation constant Terms that include the current phi
             @inbounds pertinent_rows = Φ_index[:, i] .== 1
             # @inbounds β_star = β_0 + v * sum(exp.(Φ_index[pertinent_rows, :] * log.(1 + Φ) + sum(Γ[pertinent_rows, :], 2))) / Φ_current
-            @inbounds β_star = β_0 + v * sum(exp.(sum(Φ_index[pertinent_rows, :] .* transpose(log.(Φ - (1:length(Φ) .== i) .+ 1)), 2) .+ sum(Γ[pertinent_rows, :], 2))) / Φ_current
+            @inbounds β_star = β_0 + v * sum(exp.(sum(Φ_index[pertinent_rows, :] .* transpose(log.(Φ .+ 1)), 2) .+ sum(Γ[pertinent_rows, :], 2))) / (1 + Φ_current)
             # Subtract one from the current phi value above as the 1+ bit from (1 + Φ) gets absorbed into the normalising constant
 
             #weights = cumsum(log.((0:n_agree) .+ α_0))  # Add initial 1 to account for zero case

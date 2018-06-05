@@ -1,28 +1,19 @@
-## Define a particle consisting of all cluster variables for a Gaussian mixture
+## Define a particle consisting of all cluster variables for a multinomial mixture
 ## N is no. of potential clusters
 ## d is dimension of data
 ## n_obs is the number of observations
-## n_levels is the number of levels, used in multinomial
-mutable struct gaussianCluster{n_obs, d, N, n_levels}
+## n_levels is the number of levels
+mutable struct multinomialCluster{n_obs, d, N, n_levels}
   n::Vector{Int64}
-  μ::Matrix{Float64}   ## mean of observations in clusters
-  Σ::Matrix{Float64}   ## sum of observations in clusters
-  λ::Matrix{Float64}
-  β::Matrix{Float64}
-  c::Vector{Int64}    ## The allocation vector
-  ζ::Vector{Float64}  ## logprob
-  gaussianCluster{n_obs, d, N, n_levels}() where {n_obs, d, N, n_levels} = new(
+  counts::Array{Int64}   ## count of occurrence of levels
+  multinomialCluster{n_obs, d, N, n_levels}() where {n_obs, d, N, n_levels} = new(
                                               Vector{Int64}(zeros(Int64, N)),
-                                              Matrix{Float64}(zeros(Float64, N, d)),
-                                              Matrix{Float64}(zeros(Float64, N, d)),
-                                              Matrix{Float64}(ones(Float64, N, d)),
-                                              Matrix{Float64}(ones(Float64, N, d)),
-                                              Vector{Int64}(zeros(Int64, n_obs)),
-                                              Vector{Float64}(zeros(Float64, N)))
+                                              Array{Int64}(zeros(Int64, n_levels, d, N)))
 end
 
 
-function calc_logprob!(obs::Array{Float64}, cl::gaussianCluster{n_obs, d, N, n_levels}) where {n_obs, d, N, n_levels}
+
+function calc_logprob!(obs::Array{Float64}, cl::multinomialCluster{n_obs, d, N, n_levels}) where {n_obs, d, N, n_levels}
   # Identify all non-empty clusters
   cl.ζ[1] = - 1.310533
    for q in 1:length(obs)
@@ -82,30 +73,4 @@ function particle_reset!(cl::gaussianCluster{n_obs, d, N}) where {n_obs, d, N, n
   # cl.c .= Int64(0)
   # cl.ζ .= Float64(0)
   return
-end
-
-
-function gaussian_normalise!(dataFile::Array)
-  for d = 1:size(dataFile, 2)
-    # μ = mean(dataFile[:, d])
-    # σ = std(dataFile[:, d]) + eps(Float64)
-    μ = median(dataFile[:, d])
-    σ = 0.5 * μ - quantile(dataFile[:, d], 0.05) + eps(Float64)
-    dataFile[:, d] = (dataFile[:, d] .- μ) ./ σ
-  end
-  return
-end
-
-function particle_copy(particle::gaussianCluster)
-    # As the mutation step involves copy the contents of a particle
-    # This is slightly more efficient than deepcopy
-    out = typeof(particle)()
-    out.μ = particle.μ
-    out.n = particle.n
-    out.Σ = particle.Σ
-    out.λ = particle.λ
-    out.β = particle.β
-    out.c = particle.c
-    out.ζ = particle.ζ
-    return out
 end
