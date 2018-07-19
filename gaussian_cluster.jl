@@ -10,39 +10,38 @@ mutable struct gaussianCluster
   λ::Matrix{Float64}
   β::Matrix{Float64}
   c::Vector{Int64}    ## The allocation vector
-  ζ::Vector{Float64}  ## logprob
+  #ζ::Vector{Float64}  ## logprob
   gaussianCluster(dataFile::Array, N::Int64) =  new(Vector{Int64}(zeros(Int64, N)),
                                       Matrix{Float64}(zeros(Float64, N, size(dataFile, 2))),
                                       Matrix{Float64}(zeros(Float64, N, size(dataFile, 2))),
                                       Matrix{Float64}(ones(Float64, N, size(dataFile, 2))),
                                       Matrix{Float64}(ones(Float64, N, size(dataFile, 2))),
-                                      Vector{Int64}(zeros(Int64, size(dataFile, 1))),
-                                      Vector{Float64}(zeros(Float64, N)))
+                                      Vector{Int64}(zeros(Int64, size(dataFile, 1))))
+                                      #,Vector{Float64}(zeros(Float64, N)))
 end
 
 
-function calc_logprob!(obs::Array{Float64}, cl::gaussianCluster)
-  # Identify all non-empty clusters
-  cl.ζ[1] = - 1.310533
+function calc_logprob!(obs::Array{Float64}, cl::gaussianCluster, logprob)
+  logprob[1] = - 1.310533
    for q in 1:length(obs)
-      cl.ζ[1] -=  0.75 * log(1.0 + 2 * obs[q] ^ 2)
-  end
-  @simd for n = 2:length(cl.ζ)
-    cl.ζ[n] = cl.ζ[1]
+      logprob[1] -=  0.75 * Base.Math.JuliaLibm.log(1.0 + 2.0 * obs[q] ^ 2.0)
   end
 
-  # cl.ζ .= Float64(sum(- 1.310533 .- 0.75 .* log.(1.0 + 2 .* obs .^ 2)))
+  @simd for i = 2:length(logprob)
+    logprob[i] = logprob[1]
+  end
+
   # Iterate over clusters
-   for i in 1:length(cl.ζ)
+   for i in 1:length(logprob)
       if cl.n[i] > 0
           @inbounds n = cl.n[i] * 0.5 + 0.5
-          @fastmath @inbounds cl.ζ[i] = length(obs) * (lgamma(n + 0.5) - lgamma(n) -
-                    0.5723649429247001)
+          @fastmath @inbounds logprob[i] = length(obs) * (lgamma(n + 0.5) - lgamma(n) -
+                              0.5723649429247001)
         # Iterate over features
-          for q in 1:length(obs)
-              cl.ζ[i] += 0.5 * Base.Math.JuliaLibm.log(cl.λ[i, q] / n) -
-                        (n + 0.5) * Base.Math.JuliaLibm.log((1.0 / n) *
-                        (obs[q] - cl.μ[i, q]) ^ 2.0 * cl.λ[i, q] + 1.0)
+         @inbounds for q in 1:length(obs)
+              logprob[i] += 0.5 * Base.Math.JuliaLibm.log(cl.λ[i, q] / n) -
+                                  (n + 0.5) * Base.Math.JuliaLibm.log((1.0 / n) *
+                                  (obs[q] - cl.μ[i, q]) ^ 2.0 * cl.λ[i, q] + 1.0)
 
           end
       end
@@ -105,6 +104,6 @@ function particle_copy(particle::gaussianCluster)
     out.λ = particle.λ
     out.β = particle.β
     out.c = particle.c
-    out.ζ = particle.ζ
+    # out.ζ = particle.ζ
     return out
 end
