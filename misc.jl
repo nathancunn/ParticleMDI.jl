@@ -35,20 +35,24 @@ function update_logweight!(logweight::Array, particle::Array, particle_IDs::Arra
 end
 
 
-function draw_sstar!(sstar::Array, particle::Array, particle_IDs::Array, Π::Array, K::Int64, N::Int64, ancestor_weights::Vector, logweight::Vector, s)
+function draw_sstar!(sstar::Array, logprob, particle::Array, particle_IDs::Array, Π::Array, K::Int64, N::Int64, ancestor_weights::Vector, logweight::Vector, s)
     fprob = Vector{Float64}(N)
     for k = 1:K
         for p = 1:maximum(particle_IDs[:, k])
             particle_flag = findindices(particle_IDs[:, k], p)
-            @simd for n = 1:N
-                @fastmath @inbounds fprob[n] = Π[n, k] * exp(particle[k][p].ζ[n] - maximum(particle[k][p].ζ))
+            max_p = maximum(logprob[k][:, p])
+            for n = 1:N
+                @fastmath @inbounds fprob[n] = Π[n, k] * exp(logprob[k][n, p] - max_p)
             end
             # Draw sstar
-            @inbounds @fastmath sstar[particle_flag, k] = sample(1:N, Weights(fprob), length(particle_flag))
+            @inbounds @fastmath sstar[particle_flag, k] = sample(Vector{Int64}(1:N), Weights(fprob), length(particle_flag))
             # Update ancestor weights
-            @inbounds @fastmath ancestor_weights[particle_flag] .+= log(fprob[s[k]] + eps(Float64))
-            # Update logweight
-            @inbounds @fastmath logweight[particle_flag] .+= log(sum(fprob)) + maximum(particle[k][p].ζ)
+            for p_flag in particle_flag
+                @inbounds @fastmath ancestor_weights[p_flag] += log(fprob[s[k]] + eps(Float64))
+                # Update logweight
+                # @inbounds @fastmath logweight[p_flag] += log(sum(fprob)) + maximum(particle[k][p].ζ)
+                @inbounds @fastmath logweight[p_flag] += log(sum(fprob)) + max_p
+            end
         end
         # ancestor_weights += logweight
     end
@@ -61,8 +65,9 @@ function update_particleIDs(particle_IDs, sstar, K, particles, N)
 end
 
 function ID_to_canonical!(x)
-    for k in 1:size(x, 2)
-        x[:, k] = indexin(x[:, k], unique(x[:, k]))
+    @simd for k in 1:size(x, 2)
+        @inbounds u = unique(x[:, k])
+        @inbounds x[:, k] = indexin(x[:, k], u)
     end
     return x
 end
@@ -220,11 +225,26 @@ end
 
 function findindices(A, b)
     # Find all occurrences of b in A
+    # Specifically for finding occurrences of gamma
     out = Int64[]
+    count = 1
     for (i, a) in enumerate(A)
         if a == b
             push!(out, i)
         end
     end
     return out
+end
+
+
+function findgammas(n::Int64, k::Int64, N::Int64, K::Int64)
+    pertinent_rows = Vector{Int64}(N ^ (K - 1))
+    count = 1
+         for j in collect(1:(N ^ (k - 1)))
+             for i in collect(0:(N ^ k):(N ^ K - 1))
+             pertinent_rows[count] = Int64(i + j + n - 1)
+             count += 1
+         end
+    end
+    return pertinent_rows
 end
