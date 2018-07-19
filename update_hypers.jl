@@ -28,7 +28,7 @@ end
 
 function update_Z(Φ::Array, Φ_index::Array, Γ::Array)
     # Update the normalising constant
-    Z = Float64(sum(exp.(sum(Φ_index .* transpose(log.(Φ .+ 1)), 2) .+ sum(Γ, 2))))
+    Z = Float64(sum(exp.((Φ_index * (log.(Φ .+ 1)) + sum(Γ, 2)))))
     return(Z)
 end
 
@@ -43,11 +43,25 @@ function update_γ!(γ::Array, Φ::Array, v::Float64, s::Array, Φ_index::Array,
             @inbounds α_star[n, k] = α_0 + sum(s_k .== n)
         end
     end
-    @simd for k = 1:K
+    norm_temp = Φ_index * Φ_log + sum(Γ, 2)
+    norm_temp = exp.(norm_temp)
+    for k = 1:K
         @inbounds γ_combn_k = γ_combn[:, k]
-        for n = 1:N
-            pertinent_rows = γ_combn_k .== n
-            @inbounds β_star = β_0 + v * sum(exp.(Φ_index[pertinent_rows, :] * Φ_log + sum(Γ[pertinent_rows, :], 2))) / γ[n, k]
+         for n = 1:N
+            # pertinent_rows = γ_combn_k .== n
+            pertinent_rows = findindices(γ_combn_k, n)
+            # pertinent_rows = findgammas(n, k, N, K)
+            #count = Int64(1)
+            #pertinent_rows = Vector{Int64}(N ^ (K - 1))
+            #for j in collect(1:(N ^ (k - 1)))
+            #    for i in collect(0:(N ^ k):(N ^ K - 1))
+            #         pertinent_rows[count] = Int64(i + j + n - 1)
+            #         count += Int64(1)
+            #     end
+            #end
+
+            # @inbounds β_star = β_0 + v * sum(exp.(Φ_index[pertinent_rows, :] * Φ_log + sum(Γ[pertinent_rows, :], 2))) / γ[n, k]
+            @inbounds β_star = β_0 + v * sum((norm_temp[pertinent_rows])) / γ[n, k]
             @inbounds γ[n, k] = rand(Gamma(α_star[n, k], 1 / β_star)) + eps(Float64)
         end
     end
@@ -64,6 +78,9 @@ function update_Φ!(Φ, v::Float64, s, Φ_index, γ, K::Int64, Γ)
         α_0 = 1.0
         β_0 = 0.2
         Φ_lab = calculate_Φ_lab(K)
+        Φ_log = log.(Φ .+ 1)
+        norm_temp = Φ_index * Φ_log + sum(Γ, 2)
+        @fastmath norm_temp = exp.(norm_temp)
         @simd for i in 1:length(Φ)
             # Get relevant allocations
             @inbounds current_allocations = s[:, Φ_lab[i, :]]
@@ -72,7 +89,8 @@ function update_Φ!(Φ, v::Float64, s, Φ_index, γ, K::Int64, Γ)
             # Get relevant terms in the normalisation constant Terms that include the current phi
             @inbounds pertinent_rows = Φ_index[:, i] .== 1
             # @inbounds β_star = β_0 + v * sum(exp.(Φ_index[pertinent_rows, :] * log.(1 + Φ) + sum(Γ[pertinent_rows, :], 2))) / Φ_current
-            @inbounds β_star = β_0 + v * sum(exp.(sum(Φ_index[pertinent_rows, :] .* transpose(log.(Φ .+ 1)), 2) .+ sum(Γ[pertinent_rows, :], 2))) / (1 + Φ_current)
+            # @inbounds β_star = β_0 + v * sum(exp.(sum(Φ_index[pertinent_rows, :] .* transpose(log.(Φ .+ 1)), 2) .+ sum(Γ[pertinent_rows, :], 2))) / (1 + Φ_current)
+            @inbounds β_star = β_0 + v * sum(norm_temp[pertinent_rows, :]) / (1 + Φ_current)
             # Subtract one from the current phi value above as the 1+ bit from (1 + Φ) gets absorbed into the normalising constant
 
             #weights = cumsum(log.((0:n_agree) .+ α_0))  # Add initial 1 to account for zero case
