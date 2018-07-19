@@ -1,16 +1,22 @@
-using CSVFiles
-using Distributions
-using Iterators
-using StatsBase
-import Compat.copyto!
+"""
+`pmdi(dataFiles, dataTypes, N::Int64, particles::Int64,
+ρ::Float64, iter::Int64, outputFile::String, initialise::Bool,
+output_freq::Int64)`
 
-include("gaussian_cluster.jl")
-include("multinomial_cluster.jl")
-
-include("update_hypers.jl")
-include("misc.jl")
-
-
+Runs particleMDI on specified datasets
+# Arguments
+- `dataFiles::Vector` a vector of data matrices to be analysed
+- `dataTypes::Vector` a vector of datatypes. Independent multivariate normals can be
+specified with `particleMDI.gaussian`
+- `N::Int64` the maximum number of clusters to fit
+- `particles::Int64` the number of particles
+- `ρ::Float64` proportion of allocations assumed known in each MCMC iteration
+- `iter::Int64` number of iterations to run
+- `outputFile::String` specification of a CSV file to store output
+- `initialise::Bool` if false, the algorithm begins at last output recorded in
+`outputFile` otherwise begin fresh.
+- `output_freq` how often to write output to file (may be removed as time unaffected)   
+"""
 function pmdi(dataFiles, dataTypes, N::Int64, particles::Int64,
     ρ::Float64, iter::Int64, outputFile::String, initialise::Bool, output_freq::Int64)
     K       = Int64(length(dataFiles)) # No. of datasets
@@ -34,7 +40,7 @@ function pmdi(dataFiles, dataTypes, N::Int64, particles::Int64,
     Φ = K > 1 ? rand(Gamma(1, 5), Int64(K * (K - 1) * 0.5)) : zeros(1) # Dataset concordance measure
 
     # Initialise the allocations randomly according to γ
-    s = Matrix{Int64}(zeros(n_obs, K))
+    s = Matrix{Int}(zeros(n_obs, K))
     for k = 1:K
         s[:, k] = sample(1:N, Weights(γ[:, k]), n_obs)
     end
