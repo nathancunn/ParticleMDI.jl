@@ -2,6 +2,7 @@ using CSVFiles
 using Distributions
 using Iterators
 using StatsBase
+import Compat.copyto!
 
 include("gaussian_cluster.jl")
 include("multinomial_cluster.jl")
@@ -29,7 +30,7 @@ function pmdi(dataFiles, dataTypes, N::Int64, particles::Int64,
 
     # Initialise the hyperparameters
     M = ones(K) .* 2 # Mass parameter
-    γ = rand(Gamma(2 / N, 1), N, K) .+ eps(Float64) # Component weights
+    γ = rand(Gamma(2.0 / N, 1), N, K) .+ eps(Float64) # Component weights
     Φ = K > 1 ? rand(Gamma(1, 5), Int64(K * (K - 1) * 0.5)) : zeros(1) # Dataset concordance measure
 
     # Initialise the allocations randomly according to γ
@@ -43,6 +44,7 @@ function pmdi(dataFiles, dataTypes, N::Int64, particles::Int64,
     for (i, p) in enumerate(product([1:N for k = 1:K]...))
         γ_combn[i, :] = collect(p)
     end
+
 
     # Which Φ value is activated by each of the above combinations
     Φ_index = K > 1 ? Matrix{Int64}(N ^ K, Int64(K * (K - 1) / 2)) : ones(Matrix{Int64}(N, 1), Int64)
@@ -65,6 +67,8 @@ function pmdi(dataFiles, dataTypes, N::Int64, particles::Int64,
     logweight = zeros(Float64, particles)
     ancestor_weights = zeros(Float64, particles)
     sstar = zeros(Matrix{Int64}(particles, K), Int64)
+
+    logprob = [zeros(Float64, N, particles) for k = 1:K]
 
     # Initialise the particles
     particle = [Vector{dataTypes[k]}(particles) for k = 1:K]
@@ -97,22 +101,24 @@ function pmdi(dataFiles, dataTypes, N::Int64, particles::Int64,
         order_obs = randperm(n_obs)
         # Generate the new
         for k = 1:K
-            for i in order_obs[1:Int64(floor(ρ * n_obs))]
+            for i in order_obs[1:floor(Int64, ρ * n_obs)]
                 particle_add!(dataFiles[k][i, :], i, s[i, k], particle[k][1])
             end
         end
 
         ## The conditional particle filter
-        for i in order_obs[Int64(floor(ρ * n_obs) + 1):n_obs]
+        for i in order_obs[(floor(Int64, ρ * n_obs) + 1):n_obs]
              for k = 1:K
                 for p in 1:maximum(particle_IDs[:, k])
-                    @inbounds calc_logprob!(dataFiles[k][i, :], particle[k][p])
+                    @inbounds calc_logprob!(dataFiles[k][i, :], particle[k][p], view(logprob[k], :, p))
                 end
             end
 
             # update_logweight!(logweight, particle, particle_IDs, Π, K, N)
             ancestor_weights .= logweight .+ 0
-            draw_sstar!(sstar, particle, particle_IDs, Π, K, N, ancestor_weights, logweight, s[i, :])
+
+            draw_sstar!(sstar, logprob, particle, particle_IDs, Π, K, N, ancestor_weights, logweight, s[i, :])
+
 
             # Set first particle to reference trajectory
             sstar[1, :] = s[i, :]
@@ -123,13 +129,6 @@ function pmdi(dataFiles, dataTypes, N::Int64, particles::Int64,
             # Take the fprob from each data at the ref trajectory's value
             # Add this to the particles current weight
             # Multinomially select index according to this
-            # ancestor_weights = zeros(Float64, particles) + logweight
-            # for k = 1:K
-            #    for p = 1:maximum(particle_IDs[:, k])
-            #        # println(log((Π[:, k] .* exp.(particle[k][p].ζ .- maximum(particle[k][p].ζ)))[s[i, k]]) + eps(Float64))
-            #        ancestor_weights[findin(particle_IDs[:, k], p)] .+= log.((Π[:, k] .* exp.(particle[k][p].ζ .- maximum(particle[k][p].ζ)))[s[i, k]]) + eps(Float64)
-            #    end
-            # end
             ancestor_index = sample(1:particles, Weights(exp.(ancestor_weights .- maximum(ancestor_weights))))
             for k = 1:K
                  particle_IDs[1, k] .= particle_IDs[ancestor_index, k]
@@ -149,10 +148,8 @@ function pmdi(dataFiles, dataTypes, N::Int64, particles::Int64,
                 # If the largest ID is n, then all IDs 1:n exist
                 # If new_ID_1 > new_ID_2, then ID_2 ≧ ID_1
                 for p in maximum(new_particle_IDs[:, k]):-1:1
-                    # p_inds = findin(new_particle_IDs[:, k], p)[1]
-                    # p_ind = p_inds[1]
-                    # p_ind = findfirst(x -> x == p, new_particle_IDs[:, k])
-                    p_ind = findindex(new_particle_IDs[:, k], p)
+
+                    @inbounds p_ind = findindex(new_particle_IDs[:, k], p)
                     if p == particle_IDs[p_ind, k]
                         particle_add!(obs, i, sstar[p_ind, k], particle[k][particle_IDs[p_ind, k]])
                     elseif p == id_match[particle_IDs[p_ind, k]]
@@ -160,17 +157,16 @@ function pmdi(dataFiles, dataTypes, N::Int64, particles::Int64,
                         particle[k][p] = particle[k][particle_IDs[p_ind, k]]
                     else
                         particle[k][p] = deepcopy(particle[k][particle_IDs[p_ind, k]])
-                        # particle[k][p] = particle_copy(particle[k][particle_IDs[p_ind, k]])
                         particle_add!(obs, i, sstar[p_ind, k], particle[k][p])
-                        # particle[k][p] = particle_add(obs, i, sstar[p_ind, k], particle[k][particle_IDs[p_ind, k]])
                     end
                 end
             end
-            # println(particle_IDs)
-            # println(new_particle_IDs)
+
 
             particle_IDs = deepcopy(new_particle_IDs)
             Φ_upweight!(logweight, sstar, K, Φ)
+
+
 
 
             if calc_ESS(logweight) <= 0.5 * particles
@@ -198,7 +194,9 @@ function pmdi(dataFiles, dataTypes, N::Int64, particles::Int64,
             update_γ!(γ, Φ, v, s, Φ_index, γ_combn, Γ, N, K)
 
             for k = 1:K
-                Γ[:, k] = log.(γ[γ_combn[:, k], k])
+                for i = 1:(N ^ K)
+                    Γ[i, k] = log(γ[γ_combn[i, k], k])
+                end
             end
 
             Z = update_Z(Φ, Φ_index, Γ)
