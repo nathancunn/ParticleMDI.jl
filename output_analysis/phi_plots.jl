@@ -27,9 +27,11 @@ function plot_phimatrix(outputfile::String)
 end
 
 function plot_phichain(outputfile::String, burnin::Int64, thin::Int64)
-    output = readdlm(outputfile, ',', header = true)
+    # output = readdlm(outputfile, ',', header = true)
+    names = DataFiles.readtable(outputfile, nrows = 1)
+    output = DataFiles.readtable(outputfile, skipstart = burnin)
     phicolumns = contains.( output[2], "phi_")[:]
-    phivalues = DataFrame(output[1][(burnin + 1):thin:size(output[1], 1), phicolumns])
+    phivalues = DataFrame(output[1][(1):thin:size(output[1], 1), phicolumns])
     names!(phivalues, Symbol.(output[2][:, phicolumns][:]))
     phivalues[:Iteration] = collect((burnin + 1):thin:size(output[1], 1))
 
