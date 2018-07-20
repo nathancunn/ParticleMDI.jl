@@ -2,11 +2,17 @@ __precompile__()
 
 module particleMDI
 
-import Distributions
 import CSVFiles
 import Gadfly
 import Iterators
 import StatsBase
+
+
+using Distributions
+using CSVFiles
+using Iterators
+using StatsBase
+
 
 # Core code
 include("particle_clust.jl")
@@ -21,6 +27,6 @@ include("datatypes/multinomial_cluster.jl")
 include("output_analysis/acf_plots.jl")
 
 
-export pmdi, clustrand, gaussian_normalise!
+export pmdi, clustrand, clustacf, gaussian_normalise!, plot_phichain, plot_phimatrix
 
 end # module

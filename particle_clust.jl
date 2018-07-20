@@ -1,13 +1,20 @@
+using CSVFiles
+using Distributions.Gamma
+using Distributions.logpdf
+using Distributions.sample
+using Iterators
+using StatsBase
+
 """
 `pmdi(dataFiles, dataTypes, N::Int64, particles::Int64,
 ρ::Float64, iter::Int64, outputFile::String, initialise::Bool,
 output_freq::Int64)`
 
 Runs particleMDI on specified datasets
-# Arguments
-- `dataFiles::Vector` a vector of data matrices to be analysed
-- `dataTypes::Vector` a vector of datatypes. Independent multivariate normals can be
-specified with `particleMDI.gaussian`
+## Input
+- `dataFiles::Vector` a vector of K data matrices to be analysed
+- `dataTypes::Vector` a vector of K datatypes. Independent multivariate normals can be
+specified with `particleMDI.gaussianCluster`
 - `N::Int64` the maximum number of clusters to fit
 - `particles::Int64` the number of particles
 - `ρ::Float64` proportion of allocations assumed known in each MCMC iteration
@@ -15,7 +22,15 @@ specified with `particleMDI.gaussian`
 - `outputFile::String` specification of a CSV file to store output
 - `initialise::Bool` if false, the algorithm begins at last output recorded in
 `outputFile` otherwise begin fresh.
-- `output_freq` how often to write output to file (may be removed as time unaffected)   
+- `output_freq` how often to write output to file (may be removed as time unaffected)
+
+## Output
+Outputs a .csv file, each row containing:
+- Mass parameter for datasets `1:K`
+- Φ value for `(n * (n - 1) / 2) pairs of datasets`
+- c cluster allocations for observations `1:n` in datasets `1:k`
+
+Returns a `n × K` matrix of cluster allocations.
 """
 function pmdi(dataFiles, dataTypes, N::Int64, particles::Int64,
     ρ::Float64, iter::Int64, outputFile::String, initialise::Bool, output_freq::Int64)
@@ -24,15 +39,6 @@ function pmdi(dataFiles, dataTypes, N::Int64, particles::Int64,
     d       = [Int64(size(dataFiles[k])[2]) for k = 1:K]
     @assert length(dataTypes) == K
     @assert all(x->x==n_obs, [size(dataFiles[k])[1] for k = 1:K])
-
-    # Normalise any Gaussian datasets
-    ## Doing this as it's done in the MATLAB version
-    ## Prefer to leave normalisation to user
-    # for k = 1:K
-    #     if dataTypes[k] == "gaussianCluster"
-    #         gaussian_normalise!(dataFiles[k])
-    #     end
-    # end
 
     # Initialise the hyperparameters
     M = ones(K) .* 2 # Mass parameter
