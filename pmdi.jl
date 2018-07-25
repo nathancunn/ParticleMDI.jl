@@ -1,10 +1,11 @@
 __precompile__()
 
 module particleMDI
-
+# require("*.jl") makes function available to all workers
 import CSVFiles
 import Gadfly
 import Iterators
+import NonUniformRandomVariateGeneration
 import StatsBase
 
 
@@ -21,10 +22,12 @@ include("update_hypers.jl")
 
 # Datatype specific
 include("datatypes/gaussian_cluster.jl")
-include("datatypes/multinomial_cluster.jl")
+include("datatypes/categorical_cluster.jl")
 
 # Output analysis
 include("output_analysis/acf_plots.jl")
+include("output_analysis/phi_plots.jl")
+
 
 
 export pmdi, clustrand, clustacf, gaussian_normalise!, plot_phichain, plot_phimatrix

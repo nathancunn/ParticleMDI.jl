@@ -40,12 +40,13 @@ function draw_sstar!(sstar::Array, logprob, particle::Array, particle_IDs::Array
     for k = 1:K
         for p = 1:maximum(particle_IDs[:, k])
             particle_flag = findindices(particle_IDs[:, k], p)
-            max_p = maximum(logprob[k][:, p])
+            max_p = maximum(logprob[:, p, k])
             for n = 1:N
-                @fastmath @inbounds fprob[n] = Π[n, k] * exp(logprob[k][n, p] - max_p)
+                @fastmath @inbounds fprob[n] = Π[n, k] * exp(logprob[n, p, k] - max_p)
             end
             # Draw sstar
             @inbounds @fastmath sstar[particle_flag, k] = sample(Vector{Int64}(1:N), Weights(fprob), length(particle_flag))
+            # @inbounds @fastmath sstar[particle_flag, k] = sampleCategorical(length(particle_flag), fprob)
             # Update ancestor weights
             for p_flag in particle_flag
                 @inbounds @fastmath ancestor_weights[p_flag] += log(fprob[s[k]] + eps(Float64))
@@ -60,11 +61,11 @@ function draw_sstar!(sstar::Array, logprob, particle::Array, particle_IDs::Array
 end
 
 
-function update_particleIDs(particle_IDs, sstar, K, particles, N)
+@inline function update_particleIDs(particle_IDs, sstar, K, particles, N)
     return ID_to_canonical!(particle_IDs * (particles * N) + sstar)
 end
 
-function ID_to_canonical!(x)
+@inline function ID_to_canonical!(x)
     @simd for k in 1:size(x, 2)
         @inbounds u = unique(x[:, k])
         @inbounds x[:, k] = indexin(x[:, k], u)
@@ -73,7 +74,7 @@ function ID_to_canonical!(x)
 end
 
 
-function calc_ESS(logweight)
+@inline function calc_ESS(logweight)
     return sum(exp.(logweight .- maximum(logweight))) .^ 2 / sum(exp.(logweight .- maximum(logweight)) .^ 2)
 end
 
@@ -152,54 +153,6 @@ function align_labels!(s::Array, Φ::Array, γ::Array, N::Int64, K::Int64)
             end
         # end
     end
-end
-
-
-function ancestor_sampling!(logweight, particle_IDs, particle, particles)
-    # This step alters the ID of the reference trajectory
-    # Porabilistically pick the particle most likely to
-    # mutate to the reference path in this step
-    # and assign that ID to the reference trajectory
-    # Ref particle mutates to reference path but its history
-    # changes
-    ancestor_weights = zeros(Float64, particles) + logweight
-    for k = 1:K
-        for p = 1:maximum(particle_IDs[:, k])
-            # println(log((Π[:, k] .* exp.(particle[k][p].ζ .- maximum(particle[k][p].ζ)))[s[i, k]]) + eps(Float64))
-            ancestor_weights[findindices(particle_IDs[:, k], p)] .+= log.((Π[:, k] .* exp.(particle[k][p].ζ .- maximum(particle[k][p].ζ)))[s[i, k]] + eps(Float64))
-        end
-    end
-    ancestor_index = sample(1:particles, Weights(exp.(ancestor_weights .- maximum(ancestor_weights))))
-    #for k = 1:K
-    #         particle_IDs[1, k] .= particle_IDs[ancestor_index, k]
-    #    end
-    return ancestor_weights
-
-end
-
-function ancestor_sampling_2!(logweight, particle_IDs, particle, particles)
-    # This step alters the ID of the reference trajectory
-    # Porabilistically pick the particle most likely to
-    # mutate to the reference path in this step
-    # and assign that ID to the reference trajectory
-    # Ref particle mutates to reference path but its history
-    # changes
-    ancestor_weights = zeros(Float64, particles) + logweight
-    for k = 1:K
-        for p = 1:particles
-            ancestor_weights[p] += log((Π[s[i, k], k] * exp(particle[k][p].ζ[s[i, k]] - maximum(particle[k][p].ζ))) +eps(Float64))
-        end
-    end
-    max_ancestor_weight = maximum(ancestor_weights)
-    for p = 1:particles
-        ancestor_weights[p] = exp(ancestor_weights[p] - max_ancestor_weight)
-    end
-    ancestor_index = sample(1:particles, Weights(ancestor_weights))
-    #for k = 1:K
-    #         particle_IDs[1, k] .= particle_IDs[ancestor_index, k]
-    #    end
-    return ancestor_weights
-
 end
 
 

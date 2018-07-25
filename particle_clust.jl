@@ -3,6 +3,7 @@ using Distributions.Gamma
 using Distributions.logpdf
 using Distributions.sample
 using Iterators
+using NonUniformRandomVariateGeneration.sampleCategorical
 using StatsBase
 
 """
@@ -49,6 +50,7 @@ function pmdi(dataFiles, dataTypes, N::Int64, particles::Int64,
     s = Matrix{Int}(zeros(n_obs, K))
     for k = 1:K
         s[:, k] = sample(1:N, Weights(γ[:, k]), n_obs)
+        # s[:, k] = sampleCategorical(n_obs, γ[:, k])
     end
 
     # Get a matrix of all combinations of gammas
@@ -80,7 +82,7 @@ function pmdi(dataFiles, dataTypes, N::Int64, particles::Int64,
     ancestor_weights = zeros(Float64, particles)
     sstar = zeros(Matrix{Int64}(particles, K), Int64)
 
-    logprob = [zeros(Float64, N, particles) for k = 1:K]
+    logprob = zeros(Float64, N, particles, K)
 
     # Initialise the particles
     particle = [Vector{dataTypes[k]}(particles) for k = 1:K]
@@ -114,7 +116,7 @@ function pmdi(dataFiles, dataTypes, N::Int64, particles::Int64,
         # Generate the new
         for k = 1:K
             for i in order_obs[1:floor(Int64, ρ * n_obs)]
-                particle_add!(dataFiles[k][i, :], i, s[i, k], particle[k][1])
+                particle_add!(particle[k][1], dataFiles[k][i, :], i, s[i, k])
             end
         end
 
@@ -122,7 +124,7 @@ function pmdi(dataFiles, dataTypes, N::Int64, particles::Int64,
         for i in order_obs[(floor(Int64, ρ * n_obs) + 1):n_obs]
              for k = 1:K
                 for p in 1:maximum(particle_IDs[:, k])
-                    @inbounds calc_logprob!(dataFiles[k][i, :], particle[k][p], view(logprob[k], :, p))
+                    @inbounds calc_logprob!(view(logprob, :, p, k), dataFiles[k][i, :], particle[k][p])
                 end
             end
 
@@ -141,9 +143,10 @@ function pmdi(dataFiles, dataTypes, N::Int64, particles::Int64,
             # Take the fprob from each data at the ref trajectory's value
             # Add this to the particles current weight
             # Multinomially select index according to this
+            # ancestor_index = sampleCategorical(1, exp.(ancestor_weights .- maximum(ancestor_weights)))[1]
             ancestor_index = sample(1:particles, Weights(exp.(ancestor_weights .- maximum(ancestor_weights))))
             for k = 1:K
-                 particle_IDs[1, k] .= particle_IDs[ancestor_index, k]
+                 particle_IDs[1, k] = particle_IDs[ancestor_index, k]
             end
             logweight[1] = logweight[ancestor_index]
 
@@ -163,13 +166,13 @@ function pmdi(dataFiles, dataTypes, N::Int64, particles::Int64,
 
                     @inbounds p_ind = findindex(new_particle_IDs[:, k], p)
                     if p == particle_IDs[p_ind, k]
-                        particle_add!(obs, i, sstar[p_ind, k], particle[k][particle_IDs[p_ind, k]])
+                        particle_add!(particle[k][particle_IDs[p_ind, k]], obs, i, sstar[p_ind, k])
                     elseif p == id_match[particle_IDs[p_ind, k]]
-                        particle_add!(obs, i, sstar[p_ind, k], particle[k][particle_IDs[p_ind, k]])
+                        particle_add!(particle[k][particle_IDs[p_ind, k]], obs, i, sstar[p_ind, k])
                         particle[k][p] = particle[k][particle_IDs[p_ind, k]]
                     else
                         particle[k][p] = deepcopy(particle[k][particle_IDs[p_ind, k]])
-                        particle_add!(obs, i, sstar[p_ind, k], particle[k][p])
+                        particle_add!(particle[k][p], obs, i, sstar[p_ind, k])
                     end
                 end
             end
@@ -194,6 +197,7 @@ function pmdi(dataFiles, dataTypes, N::Int64, particles::Int64,
         end
         # Select a single particle
         p_star = sample(1:particles, Weights(exp.(logweight .- maximum(logweight))))
+        # p_star = sampleCategorical(particles, exp.(logweight .- maximum(logweight)))
         logweight .= 1.0
             for k = 1:K
                 @inbounds s[:, k] = particle[k][particle_IDs[p_star, k]].c
