@@ -2,10 +2,10 @@ __precompile__()
 
 module particleMDI
 # require("*.jl") makes function available to all workers
+import Clustering
 import CSVFiles
 import Gadfly
 import Iterators
-import NonUniformRandomVariateGeneration
 import StatsBase
 
 
@@ -27,9 +27,10 @@ include("datatypes/categorical_cluster.jl")
 # Output analysis
 include("output_analysis/acf_plots.jl")
 include("output_analysis/phi_plots.jl")
+include("output_analysis/consensus_map.jl")
 
 
 
-export pmdi, clustrand, clustacf, gaussian_normalise!, plot_phichain, plot_phimatrix
+export pmdi, clustrand, clustacf, gaussian_normalise!, plot_phichain, plot_phimatrix, generate_psm, consensus_map
 
 end # module

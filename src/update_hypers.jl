@@ -29,7 +29,26 @@ end
 @inline function update_Z(Φ::Array, Φ_index::Array, Γ::Array)
     # Update the normalising constant
     Z = Float64(sum(exp.((Φ_index * (log.(Φ + 1)) + sum(Γ, 2)))))
-    return(Z)
+    return Z
+end
+
+@inline function calculate_likelihood(s::Array, Φ::Array, γ::Array, Z::Float64)
+    likelihood = zeros(Float64, (size(s, 1)))
+    for i in 1:size(s, 1)
+        for k in 1:size(s, 2)
+            likelihood[i] += Base.Math.JuliaLibm.log(γ[s[i, k], k])
+        end
+        if size(s, 2) > 1
+            ϕ = 1
+            for k1 in 1:(size(s, 2) - 1)
+                for k2 in (k1 + 1):(size(s, 2))
+                    likelihood += log(1 + Φ[ϕ]) * s[i, k1] == s[i, k2]
+                    ϕ += 1
+                end
+            end
+        end
+    end
+    return sum(exp.(likelihood) / Z)
 end
 
 function update_γ!(γ::Array, Φ::Array, v::Float64, s::Array, Φ_index::Array, γ_combn::Array, Γ::Array, N::Int64, K::Int64)
@@ -83,7 +102,7 @@ function update_Φ!(Φ, v::Float64, s, Φ_index, γ, K::Int64, Γ)
             @inbounds pertinent_rows = Φ_index[:, i] .== 1
             @inbounds β_star = β_0 + v * sum(norm_temp[pertinent_rows, :]) / (1 + Φ_current)
             #weights = cumsum(log.((0:n_agree) .+ α_0))  # Add initial 1 to account for zero case
-            weights = lgamma.((0:n_agree) .+ α_0)
+            weights = lgamma.((0:n_agree) + α_0)
             # weights = gamma.((0:n_agree) .+ α_0)
             weights += logpdf.(Binomial(n_agree, 0.5), 0:n_agree)
             # weights += log.(binomial.(n_agree, 0:n_agree))

@@ -32,10 +32,11 @@ function calc_logprob!(logprob::SubArray, obs::Array, cl::particleMDI.GaussianCl
   end
 
   # Iterate over clusters
+  Q = length(obs)
    for i in 1:length(logprob)
       if cl.n[i] > 0
           @inbounds n = cl.n[i] * 0.5 + 0.5
-          @fastmath @inbounds logprob[i] = length(obs) * (lgamma(n + 0.5) - lgamma(n) -
+          @fastmath @inbounds logprob[i] = Q * (lgamma(n + 0.5) - lgamma(n) -
                               0.5723649429247001)
         # Iterate over features
          @inbounds for q in 1:length(obs)

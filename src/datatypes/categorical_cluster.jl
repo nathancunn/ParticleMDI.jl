@@ -19,8 +19,7 @@ function calc_logprob!(logprob, obs::Array{Int64}, cl::CategoricalCluster)
           @inbounds logprob[n] += Base.Math.JuliaLibm.log(0.5) * Q
       else
           for q in 1:Q
-              counts = cl.counts[q]
-              @fastmath @inbounds logprob[n] += Base.Math.JuliaLibm.log(0.5 + counts[obs[q], n])
+              @fastmath @inbounds logprob[n] += Base.Math.JuliaLibm.log(0.5 + cl.counts[q][obs[q], n])
           end
       end
   end

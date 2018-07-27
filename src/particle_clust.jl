@@ -3,7 +3,6 @@ using Distributions.Gamma
 using Distributions.logpdf
 using Distributions.sample
 using Iterators
-using NonUniformRandomVariateGeneration.sampleCategorical
 using StatsBase
 
 """
@@ -28,7 +27,7 @@ specified with `particleMDI.gaussianCluster`
 ## Output
 Outputs a .csv file, each row containing:
 - Mass parameter for datasets `1:K`
-- Φ value for `(n * (n - 1) / 2) pairs of datasets`
+- Φ value for `binomial(K, 2)` pairs of datasets
 - c cluster allocations for observations `1:n` in datasets `1:k`
 
 Returns a `n × K` matrix of cluster allocations.
@@ -90,13 +89,15 @@ function pmdi(dataFiles, dataTypes, N::Int64, particles::Int64,
     for k = 1:K
         particle[k][1] = dataTypes[k](dataFiles[k], N)
     end
+    # Calculate likelihood
+    ll = calculate_likelihood(s::Array, Φ::Array, γ::Array, Z::Float64)
 
     # Save information to file
-    out = vcat(map(x -> @sprintf("MassParameter_%d", x), 1:K), map((x, y) -> @sprintf("phi_%d_%d", x, y), calculate_Φ_lab(K)[:, 1], calculate_Φ_lab(K)[:, 2]), map((x, y) -> @sprintf("K%d_n%d", x, y), repeat(1:K, inner = n_obs), repeat(1:n_obs, outer = K)))
+    out = vcat(map(x -> @sprintf("MassParameter_%d", x), 1:K), map((x, y) -> @sprintf("phi_%d_%d", x, y), calculate_Φ_lab(K)[:, 1], calculate_Φ_lab(K)[:, 2]), "ll", map((x, y) -> @sprintf("K%d_n%d", x, y), repeat(1:K, inner = n_obs), repeat(1:n_obs, outer = K)))
     out =  reshape(out, 1, length(out))
     writecsv(outputFile, out)
     fileid = open(outputFile, "a")
-    writecsv(fileid, [M; Φ; s[1:(n_obs * K)]]')
+    writecsv(fileid, [M; Φ; ll;  s[1:(n_obs * K)]]')
 
 
     for it in 1:iter
@@ -216,7 +217,8 @@ function pmdi(dataFiles, dataTypes, N::Int64, particles::Int64,
             end
 
             Z = update_Z(Φ, Φ_index, Γ)
-            writecsv(fileid, [M; Φ; s[1:(n_obs * K)]]')
+            ll = calculate_likelihood(s::Array, Φ::Array, γ::Array, Z::Float64)
+            writecsv(fileid, [M; Φ; ll; s[1:(n_obs * K)]]')
 
         end
         close(fileid)
