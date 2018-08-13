@@ -16,7 +16,7 @@ end
 
 Generates a posterior similarity matrix from pmdi output
 ## Input
-- `outputFile::String` a string referring to the location on disk of pmdi output
+- `outputFile::S    tring` a string referring to the location on disk of pmdi output
 - `burnin::Int64` an integer of the number of initial iterations to discard as burn-in
 - `thin::Int64` an integer for the rate at which to thin output, `thin = 2` discards
 every second iteration
@@ -34,7 +34,7 @@ function generate_psm(outputFile::String, burnin::Int64 = 0, thin::Int64 = 1)
 
     K = sum(ismatch.(r"MassParameter", outputNames))
 
-    output = output[1:thin:end, (K + binomial(K, 2) + 2):end]
+    output = output[1:thin:end, (K + binomial(K, 2) + (K == 1) + 2):end]
 
     n_obs = size(output, 2) / K
     @assert mod(n_obs, 1) == 0 "Error: Datasets have different number of observations"
@@ -42,7 +42,7 @@ function generate_psm(outputFile::String, burnin::Int64 = 0, thin::Int64 = 1)
     n_iter = size(output, 1)
 
     psm = Posterior_similarity_matrix(K, n_obs)
-    psm.names[1:K] = unique(map(x -> split(x, '_')[1], outputNames[(K + binomial(K, 2) + 2):end]))
+    psm.names[1:K] = unique(map(x -> split(x, '_')[1], outputNames[(K + (K == 1) + binomial(K, 2) + 2):end]))
     if K > 1
         psm.names[K + 1] = "Overall"
     end
@@ -108,10 +108,13 @@ function consensus_map(psm::Posterior_similarity_matrix, nclust::Int64, orderby:
         end
     end
     plot(plot_df, x = :x, y = :y, color = :ps, xgroup = :Dataset,
-    Geom.subplot_grid(Geom.rectbin,
-    Coord.cartesian(fixed = true,
-                      xmin = 0.5, ymin = 0.5,
-                      xmax = maximum(plot_df[:x]) + 0.5,
-                      ymax = maximum(plot_df[:y]) + 0.5,
-                      yflip = true)))
+    Geom.subplot_grid(Coord.cartesian(raster = true,
+                                    fixed = true,
+                                    xmin = 0.5, ymin = 0.5,
+                                    xmax = maximum(plot_df[:x]) + 0.5,
+                                    ymax = maximum(plot_df[:y]) + 0.5,
+                                    yflip = true),
+                    Geom.rectbin,
+                    Scale.x_continuous,
+                    Scale.y_continuous))
 end

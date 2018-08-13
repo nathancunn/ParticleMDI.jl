@@ -1,7 +1,6 @@
 __precompile__()
 
 module particleMDI
-# require("*.jl") makes function available to all workers
 import Clustering
 import CSVFiles
 import Gadfly
@@ -12,11 +11,13 @@ import StatsBase
 using Distributions
 using CSVFiles
 using Iterators
+using NonUniformRandomVariateGeneration
 using StatsBase
 
 
 # Core code
 include("pmdi.jl")
+include("parallel_pmdi.jl")
 include("misc.jl")
 include("update_hypers.jl")
 

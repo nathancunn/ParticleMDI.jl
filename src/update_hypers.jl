@@ -51,30 +51,29 @@ end
     return sum(exp.(likelihood) / Z)
 end
 
-function update_γ!(γ::Array, Φ::Array, v::Float64, s::Array, Φ_index::Array, γ_combn::Array, Γ::Array, N::Int64, K::Int64)
-    α_0 = 1.0 / N
+function update_γs!(γs::Array, Φ::Array, v::Float64, M, s::Array, Φ_index::Array, γs_combn::Array, Γ::Array, N::Int64, K::Int64)
     β_0 = 1.0
     Φ_log = log.(Φ + 1)
     α_star = Matrix{Float64}(N, K)
-    @simd for k = 1:K
-        s_k = s[:, k]
+    for k = 1:K
         for n = 1:N
-            @inbounds α_star[n, k] = α_0 + sum(s_k .== n)
+            # @inbounds α_star[n, k] = α_0 + sum(s_k .== n)
+            @inbounds α_star[n, k] = M[k] / N + sum(s[:, k] .== n)
         end
     end
     norm_temp = Φ_index * Φ_log + sum(Γ, 2)
     norm_temp = exp.(norm_temp)
     for k = 1:K
-        @inbounds γ_combn_k = γ_combn[:, k]
+        @inbounds γs_combn_k = γs_combn[:, k]
          for n = 1:N
-            # pertinent_rows = γ_combn_k .== n
-            pertinent_rows = findindices(γ_combn_k, n)
-            old_γ = γ[n, k]
+            # pertinent_rows = γs_combn_k .== n
+            pertinent_rows = findindices(γs_combn_k, n)
+            old_γs = γs[n, k] + 0.0
 
-            # @inbounds β_star = β_0 + v * sum(exp.(Φ_index[pertinent_rows, :] * Φ_log + sum(Γ[pertinent_rows, :], 2))) / γ[n, k]
-            @inbounds β_star = β_0 + v * sum((norm_temp[pertinent_rows])) / γ[n, k]
-            @inbounds γ[n, k] = rand(Gamma(α_star[n, k], 1 / β_star)) + eps(Float64)
-            norm_temp[pertinent_rows] .*= γ[n, k] / old_γ
+            # @inbounds β_star = β_0 + v * sum(exp.(Φ_index[pertinent_rows, :] * Φ_log + sum(Γ[pertinent_rows, :], 2))) / γs[n, k]
+            @inbounds β_star = β_0 + v * sum((norm_temp[pertinent_rows])) / γs[n, k]
+            @inbounds γs[n, k] = rand(Gamma(α_star[n, k], 1 / β_star)) + eps(Float64)
+            norm_temp[pertinent_rows] .*= γs[n, k] / old_γs
         end
     end
     return

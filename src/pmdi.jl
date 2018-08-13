@@ -33,7 +33,7 @@ Outputs a .csv file, each row containing:
 Returns a `n × K` matrix of cluster allocations.
 """
 function pmdi(dataFiles, dataTypes, N::Int64, particles::Int64,
-    ρ::Float64, iter::Int64, outputFile::String, initialise::Bool, output_freq::Int64)
+    ρ::Float64, iter::Int64, outputFile::String, initialise::Bool)
     K       = Int64(length(dataFiles)) # No. of datasets
     n_obs   = Int64(size(dataFiles[1])[1])
     d       = [Int64(size(dataFiles[k])[2]) for k = 1:K]
@@ -42,20 +42,20 @@ function pmdi(dataFiles, dataTypes, N::Int64, particles::Int64,
 
     # Initialise the hyperparameters
     M = ones(K) .* 2 # Mass parameter
-    γ = rand(Gamma(2.0 / N, 1), N, K) .+ eps(Float64) # Component weights
+    γs = rand(Gamma(2.0 / N, 1), N, K) .+ eps(Float64) # Component weights
     Φ = K > 1 ? rand(Gamma(1, 5), Int64(K * (K - 1) * 0.5)) : zeros(1) # Dataset concordance measure
 
-    # Initialise the allocations randomly according to γ
+    # Initialise the allocations randomly according to γs
     s = Matrix{Int}(zeros(n_obs, K))
     for k = 1:K
-        s[:, k] = sample(1:N, Weights(γ[:, k]), n_obs)
-        # s[:, k] = sampleCategorical(n_obs, γ[:, k])
+        s[:, k] = sample(1:N, Weights(γs[:, k]), n_obs)
+        # s[:, k] = sampleCategorical(n_obs, γs[:, k])
     end
 
     # Get a matrix of all combinations of gammas
-    γ_combn = Matrix{Int64}(N ^ K, K)
+    γs_combn = Matrix{Int64}(N ^ K, K)
     for (i, p) in enumerate(product([1:N for k = 1:K]...))
-        γ_combn[i, :] = collect(p)
+        γs_combn[i, :] = collect(p)
     end
 
 
@@ -65,7 +65,7 @@ function pmdi(dataFiles, dataTypes, N::Int64, particles::Int64,
         i = 1
         for k1 in 1:(K - 1)
             for k2 in (k1 + 1):K
-                Φ_index[:, i] = (γ_combn[:, k1] .== γ_combn[:, k2])
+                Φ_index[:, i] = (γs_combn[:, k1] .== γs_combn[:, k2])
                 i += 1
             end
         end
@@ -73,7 +73,7 @@ function pmdi(dataFiles, dataTypes, N::Int64, particles::Int64,
 
     Γ = Matrix{Float64}(N ^ K, K) # The actual gamma values for the gamma combinations
     for k = 1:K
-        Γ[:, k] = log.(γ[:, k][γ_combn[:, k]])
+        Γ[:, k] = log.(γs[:, k][γs_combn[:, k]])
     end
     Z = update_Z(Φ, Φ_index, Γ)
 
@@ -90,7 +90,7 @@ function pmdi(dataFiles, dataTypes, N::Int64, particles::Int64,
         particle[k][1] = dataTypes[k](dataFiles[k], N)
     end
     # Calculate likelihood
-    ll = calculate_likelihood(s::Array, Φ::Array, γ::Array, Z::Float64)
+    ll = calculate_likelihood(s::Array, Φ::Array, γs::Array, Z::Float64)
 
     # Save information to file
     out = vcat(map(x -> @sprintf("MassParameter_%d", x), 1:K), map((x, y) -> @sprintf("phi_%d_%d", x, y), calculate_Φ_lab(K)[:, 1], calculate_Φ_lab(K)[:, 2]), "ll", map((x, y) -> @sprintf("K%d_n%d", x, y), repeat(1:K, inner = n_obs), repeat(1:n_obs, outer = K)))
@@ -106,12 +106,12 @@ function pmdi(dataFiles, dataTypes, N::Int64, particles::Int64,
                 particle_reset!(particle[k][1])
         end
         particle_IDs .= Int64(1)
-        #println(Z - sum(γ))
+        #println(Z - sum(γs))
 
         v = update_v(n_obs, Z)
-        update_M!(M, γ, K, N)
+        update_M!(M, γs, K, N)
 
-        Π = γ ./ sum(γ, 1)
+        Π = γs ./ sum(γs, 1)
 
         order_obs = randperm(n_obs)
         # Generate the new
@@ -205,19 +205,19 @@ function pmdi(dataFiles, dataTypes, N::Int64, particles::Int64,
                 # println(s)
             end
             # Match up labels across datasets
-            align_labels!(s, Φ, γ, N, K)
+            align_labels!(s, Φ, γs, N, K)
             # s[:, 1] = 11 - s[:, 2]
-            update_Φ!(Φ, v, s, Φ_index, γ, K, Γ)
-            update_γ!(γ, Φ, v, s, Φ_index, γ_combn, Γ, N, K)
+            update_Φ!(Φ, v, s, Φ_index, γs, K, Γ)
+            update_γs!(γs, Φ, v, M, s, Φ_index, γs_combn, Γ, N, K)
 
             for k = 1:K
                 for i = 1:(N ^ K)
-                    Γ[i, k] = log(γ[γ_combn[i, k], k])
+                    Γ[i, k] = log(γs[γs_combn[i, k], k])
                 end
             end
 
             Z = update_Z(Φ, Φ_index, Γ)
-            ll = calculate_likelihood(s::Array, Φ::Array, γ::Array, Z::Float64)
+            ll = calculate_likelihood(s::Array, Φ::Array, γs::Array, Z::Float64)
             writecsv(fileid, [M; Φ; ll; s[1:(n_obs * K)]]')
 
         end
