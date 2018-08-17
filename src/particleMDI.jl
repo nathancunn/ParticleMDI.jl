@@ -17,7 +17,6 @@ using StatsBase
 
 # Core code
 include("pmdi.jl")
-include("parallel_pmdi.jl")
 include("misc.jl")
 include("update_hypers.jl")
 

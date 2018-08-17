@@ -12,77 +12,93 @@ function calculate_Φ_lab(K::Int64)
     return Φ_lab
 end
 
-# Not needed anymore
-function calc_fprob!(fprob::Array, logprob, particle_IDs, K, Π)
-    @simd for k = 1:K
-        @simd for p in unique(particle_IDs[:, k])
-            fprob[:, p, k] = Π[:, k] .* exp.(logprob[:, p, k] .- maximum(logprob[:, p, k]))
-        end
-    end
-    return
-end
-
-function update_logweight!(logweight::Array, particle::Array, particle_IDs::Array, Π::Array, K::Int64, N::Int64)
-    @simd for k = 1:K
-        # π_k = Π[:, k]
-        # ids_k = particle_IDs[:, k]
-        for p in 1:maximum(particle_IDs[:, k])
-            @inbounds fprob = Π[:, k] .* exp.(particle[k][p].ζ .- maximum(particle[k][p].ζ))
-            @inbounds logweight[findindices(particle_IDs[:, k], p)] .+= log(sum(fprob)) + maximum(particle[k][p].ζ)
-        end
-    end
-    return
-end
-
 
 function draw_sstar!(sstar::Array, logprob, particle::Array, particle_IDs::Array, Π::Array, K::Int64, N::Int64, ancestor_weights::Vector, logweight::Vector, s)
     fprob = Vector{Float64}(N)
     for k = 1:K
         for p = 1:maximum(particle_IDs[:, k])
-            particle_flag = findindices(particle_IDs[:, k], p)
-            max_p = maximum(logprob[:, p, k])
+            @inbounds particle_flag = findindices(particle_IDs[:, k], p)
+            @inbounds max_p = maximum(logprob[:, p, k])
             for n = 1:N
                 @fastmath @inbounds fprob[n] = Π[n, k] * exp(logprob[n, p, k] - max_p)
             end
             # Draw sstar
-            @inbounds @fastmath sstar[particle_flag, k] = sample(Vector{Int64}(1:N), Weights(fprob), length(particle_flag))
-            # @inbounds @fastmath sstar[particle_flag, k] = sampleCategorical(length(particle_flag), fprob)
+            # @inbounds @fastmath sstar[particle_flag, k] = sample(Vector{Int64}(1:N), Weights(fprob), length(particle_flag))
+            @inbounds sstar[particle_flag, k] = sampleCategorical(length(particle_flag), fprob)
             # Update ancestor weights
             for p_flag in particle_flag
-                @inbounds @fastmath ancestor_weights[p_flag] += log(fprob[s[k]] + eps(Float64))
+                @inbounds @fastmath ancestor_weights[p_flag] += Base.Math.JuliaLibm.log(fprob[s[k]] + eps(Float64))
                 # Update logweight
-                # @inbounds @fastmath logweight[p_flag] += log(sum(fprob)) + maximum(particle[k][p].ζ)
-                @inbounds @fastmath logweight[p_flag] += log(sum(fprob)) + max_p
+                @inbounds @fastmath logweight[p_flag] += Base.Math.JuliaLibm.log(sum(fprob)) + max_p
             end
         end
-        # ancestor_weights += logweight
     end
     return
 end
 
+function draw_sstar_p!(sstar, logprob, Π::Array, N::Int64, ancestor_weights::Vector, logweight, s)
+    fprob = Vector{Float64}(N)
+    # @inbounds particle_flag = findindices(particle_IDs, p)
+    @inbounds max_p = maximum(logprob)
+    for n = 1:N
+        @fastmath @inbounds fprob[n] = Π[n] * exp(logprob[n] - max_p)
+    end
+    # Draw sstar
+    @inbounds sstar = sampleCategorical(length(sstar), fprob)
+    # Update ancestor weights
+    #for p_flag in particle_flag
+    @inbounds @fastmath ancestor_weights += Base.Math.JuliaLibm.log(fprob[s] + eps(Float64))
+        # Update logweight
+        @inbounds @fastmath logweight .+= Base.Math.JuliaLibm.log(sum(fprob)) + max_p
+    #end
+    return (sstar, logweight)
+end
 
-@inline function update_particleIDs(particle_IDs, sstar, K, particles, N)
+@inline function update_particleIDs(particle_IDs, sstar, particles, N)
     return ID_to_canonical!(particle_IDs * (particles * N) + sstar)
 end
 
-@inline function ID_to_canonical!(x)
-    @simd for k in 1:size(x, 2)
-        @inbounds u = unique(x[:, k])
-        @inbounds x[:, k] = indexin(x[:, k], u)
+@inline function update_particleIDs!(particle_IDs, sstar, particles, N)
+    for k in 1:size(particle_IDs, 2)
+        for p in 1:size(particle_IDs, 1)
+            particle_IDs[p, k] = particle_IDs[p, k] * (particles * N) + sstar[p, k]
+        end
     end
-    return x
+    ID_to_canonical!(particle_IDs)
+end
+
+function ID_to_canonical!(x)
+    for (i, xi) in enumerate(x)
+        if xi > 0
+            for k in eachindex(x)
+                if x[k] == xi
+                    x[k] = - i
+                end
+            end
+        end
+    end
+    x = - x
 end
 
 
 @inline function calc_ESS(logweight)
-    return sum(exp.(logweight .- maximum(logweight))) .^ 2 / sum(exp.(logweight .- maximum(logweight)) .^ 2)
+    ESSnum = 0.0
+    ESSdenom = 0.0
+    max_l = maximum(logweight)
+    for l in logweight
+        num = Base.Math.JuliaLibm.exp(l - max_l)
+        ESSnum += num
+        ESSdenom += num ^ 2
+    end
+    # return sum(exp.(logweight .- maximum(logweight))) .^ 2 / sum(exp.(logweight .- maximum(logweight)) .^ 2)
+    return (ESSnum ^ 2) / ESSdenom
 end
 
 function draw_partstar(logweight, particles)
     u = rand() / particles
     pprob = cumsum(exp.(logweight .- maximum(logweight)))
     partstar = zeros(Int64, particles)
-    i = Int64(0)
+    i = 0
     for p = 1:particles
         while pprob[p] / last(pprob) >= u
             u += 1 / particles
@@ -90,17 +106,21 @@ function draw_partstar(logweight, particles)
             partstar[i] = p
         end
     end
+    partstar[1] = 1
     return partstar
 end
 
 
-function Φ_upweight!(logweight::Array, sstar::Array, K::Int64, Φ::Array)
+function Φ_upweight!(logweight, sstar, K::Int64, Φ, particles)
     if K == 1
-        return logweight
+        return
     else
         Φ_lab = calculate_Φ_lab(K)
-        for i = 1:Int64((K * (K - 1) * 0.5))
-            logweight .+= (sstar[:, Φ_lab[i, 1]] .== sstar[:, Φ_lab[i, 2]]) .* transpose(log(1 + Φ[i]))
+        for i in 1:Int64((K * (K - 1) * 0.5))
+            Φ_log = log(1 + Φ[i])
+            for p in 1:particles
+                logweight[p] += (sstar[p, Φ_lab[i, 1]] == sstar[p, Φ_lab[i, 2]]) * Φ_log
+            end
         end
     end
     return
@@ -127,8 +147,8 @@ function align_labels!(s::Array, Φ::Array, γ::Array, N::Int64, K::Int64)
                 relevant_Φs = Φ_log[(Φ_lab[:, 1] .== k) .| (Φ_lab[:, 2] .== k)]
                 # for i in 1:(length(unique_sk))
                 for label in unique_sk
-                    # new_label = sample(setdiff(unique_s, label))
-                    for new_label in setdiff(unique_s, label)
+                    new_label = sample(setdiff(unique_s, label))
+                    # for new_label in setdiff(unique_s, label)
                         label_ind = findindices(s[:, k], label)
                         new_label_ind = findindices(s[:, k], new_label)
 
@@ -148,7 +168,7 @@ function align_labels!(s::Array, Φ::Array, γ::Array, N::Int64, K::Int64)
                             γ[new_label, k] = γ[label, k]
                             γ[label, k] = γ_temp
                         end
-                    end
+                    # end
                 end
             end
         # end
@@ -157,7 +177,7 @@ end
 
 
 function ID_match(particle_IDs, new_particle_IDs, particles::Int64)
-    # Find the maximum new_particle_ID corresponding
+    # Find the minimum new_particle_ID corresponding
     # to a particular particle_ID
     out = Array{Int64}(particles)
     for u in unique(particle_IDs)
@@ -180,7 +200,6 @@ function findindices(A, b)
     # Find all occurrences of b in A
     # Specifically for finding occurrences of gamma
     out = Int64[]
-    count = 1
     for (i, a) in enumerate(A)
         if a == b
             push!(out, i)
@@ -188,6 +207,17 @@ function findindices(A, b)
     end
     return out
 end
+
+function countn(A, b)
+    out = 0
+    for a in A
+        if a == b
+            out += 1
+        end
+    end
+    return out
+end
+
 
 
 function findgammas(n::Int64, k::Int64, N::Int64, K::Int64)
@@ -200,4 +230,23 @@ function findgammas(n::Int64, k::Int64, N::Int64, K::Int64)
          end
     end
     return pertinent_rows
+end
+
+
+function wipedout(v1, v2, x)
+    count1 = 0
+    for i in eachindex(v1)
+        if v1 == x
+            count1 += 1
+        end
+    end
+    for i in eachindex(v2)
+        if v2 == x
+            count1 -= 1
+        end
+        if count1 <= 0
+            return false
+        end
+    end
+    return true
 end
