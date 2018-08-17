@@ -15,7 +15,6 @@ mutable struct GaussianCluster
                                       Vector{Float64}(zeros(Float64, size(dataFile, 2))),
                                       Vector{Float64}(ones(Float64, size(dataFile, 2))),
                                       Vector{Float64}(ones(Float64, size(dataFile, 2))))
-                                      #,Vector{Float64}(zeros(Float64, N)))
 end
 
 function calc_logprob(obs::Array, cl::GaussianCluster)

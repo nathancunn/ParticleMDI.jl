@@ -1,5 +1,6 @@
 module particleMDI
-import Clustering
+
+import Clustering.hclust
 import CSVFiles
 import Distributions
 import Gadfly
