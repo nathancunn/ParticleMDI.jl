@@ -20,7 +20,7 @@ function plot_phimatrix(outputFile::String, burnin::Int64, thin::Int64)
     phiColumns = ismatch.(r"phi_", outputNames)
     output = readcsv(outputFile, header = false, skipstart = burnin + 1)
 
-    phiValues = DataFrame(output[1:thin:size(output, 1), phiColumns])
+    phiValues = DataFrame(output[1:thin:end, phiColumns])
     names!(phiValues, Symbol.(outputNames[phiColumns]))
     phiValues[:Iteration] = collect((1):thin:size(output, 1))
     nphis = sum(phiColumns)
@@ -62,7 +62,7 @@ function plot_phichain(outputFile::String, burnin::Int64, thin::Int64)
     phiColumns = ismatch.(r"phi_", outputNames)
     output = readcsv(outputFile, header = false, skipstart = burnin + 1)
 
-    phiValues = DataFrame(output[1:thin:size(output, 1), phiColumns])
+    phiValues = DataFrame(output[1:thin:end, phiColumns])
     names!(phiValues, Symbol.(outputNames[phiColumns]))
     phiValues[:Iteration] = collect((1):thin:size(output, 1))
 

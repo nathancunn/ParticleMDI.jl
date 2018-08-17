@@ -73,10 +73,11 @@ Generates a consensus map plot for a given posterior similarity matrix
 - `orderby` observations in all plots are ordered in a way to separate clusters as well
 as possible. `orderby` specifies which dataset should be used to inform this ordering.
 `orderby = 0` will let the overall consensus dictate the ordering.
-
 ## Output
 - K + 1 (or K if K == 1) consensus maps illustrating the clustering output in each
 of K datasets.
+*Note: as the output of this is a large SVG file it's typically advisable to
+directly save the output of this as an image file*
 """
 function consensus_map(psm::Posterior_similarity_matrix, nclust::Int64, orderby::Int64 = 0)
     if orderby == 0
@@ -109,12 +110,12 @@ function consensus_map(psm::Posterior_similarity_matrix, nclust::Int64, orderby:
     end
     plot(plot_df, x = :x, y = :y, color = :ps, xgroup = :Dataset,
     Geom.subplot_grid(Coord.cartesian(raster = true,
-                                    fixed = true,
-                                    xmin = 0.5, ymin = 0.5,
-                                    xmax = maximum(plot_df[:x]) + 0.5,
-                                    ymax = maximum(plot_df[:y]) + 0.5,
-                                    yflip = true),
-                    Geom.rectbin,
-                    Scale.x_continuous,
-                    Scale.y_continuous))
+                                      aspect_ratio = 1.0,
+                                      xmin = 0.5, ymin = 0.5,
+                                      xmax = maximum(plot_df[:x]) + 0.5,
+                                      ymax = maximum(plot_df[:y]) + 0.5,
+                                      yflip = true),
+                       Geom.rectbin,
+                       Scale.x_continuous,
+                       Scale.y_continuous))
 end
