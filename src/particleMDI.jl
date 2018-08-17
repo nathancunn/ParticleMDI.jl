@@ -1,19 +1,11 @@
-__precompile__()
-
 module particleMDI
 import Clustering
 import CSVFiles
+import Distributions
 import Gadfly
 import Iterators
+import NonUniformRandomVariateGeneration
 import StatsBase
-
-
-using Distributions
-using CSVFiles
-using Iterators
-using NonUniformRandomVariateGeneration
-using StatsBase
-
 
 # Core code
 include("pmdi.jl")
