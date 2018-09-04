@@ -3,7 +3,7 @@
 This package provides an implementation of particleMDI, a particle Gibbs version of MDI, allowing for the integrative cluster analysis of multiple datasets. particleMDI is built within the framework of [MDI (multiple data integration)](https://academic.oup.com/bioinformatics/article/28/24/3290/244641).
 
 ## Installation
-```
+```jl
 Pkg.clone("git://github.com/nathancunn/particleMDI.jl.git")
 ```
 
@@ -25,7 +25,7 @@ Outputs a .csv file, each row containing:
 - Φ value for `binomial(K, 2)` pairs of datasets
 - c cluster allocations for observations `1:n` in datasets `1:k`
 
-```
+```jl
 using particleMDI
 using RDatasets
 
@@ -39,7 +39,7 @@ pmdi(data, dataTypes, 10, 2, 0.99, 1000, "output/file.csv", true)
 `particleMDI` includes functionality for clustering Gaussian and categorical data, however this can easily be extended to other data types. Consider a trivial case where we wish to cluster data according to their sign.
 The first step is to define a struct containing each cluster. Typically this will contain information on the number of observations in the cluster as well sufficient statistics for calculating the posterior predictive of assigning new observations to this cluster.
 
-```
+```jl
 mutable struct SignCluster
   n::Int64    # No. of observations in cluster
   isneg::Bool # Positive/negative flag
@@ -49,7 +49,7 @@ end
 
 Given this, we then need to define a function which returns the log posterior predictive of an observation belonging to this cluster, given the allocations already assigned to it. In this case, all we need to know is does the cluster contain positive or negative numbers. 
 
-```
+```jl
 function particleMDI.calc_logprob(cl::SignCluster, obs)
     if cl.n == 0
         return log(0.5)
@@ -60,7 +60,7 @@ end
 ```
 
 And finally, a function needs to be specified explaining how to update a cluster when new observations are added to it.
-```
+```jl
 function particleMDI.cluster_add!(cl::SignCluster, obs)
     cl.n += 1
     cl.isneg = (obs[1] < 0)
