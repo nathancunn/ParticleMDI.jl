@@ -1,6 +1,5 @@
 using Clustering
 using Compose
-using CSV
 using DataFrames
 using Gadfly
 
