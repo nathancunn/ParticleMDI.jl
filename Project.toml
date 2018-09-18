@@ -1,6 +1,0 @@
-authors = ["nathancunn <nathancunn@gmail.com>"]
-name = "particleMDI"
-uuid = "c070f950-bb2a-11e8-1d15-1b6f26bd9de9"
-version = "0.1.0"
-
-[deps]
