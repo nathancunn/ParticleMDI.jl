@@ -7,7 +7,7 @@ using NonUniformRandomVariateGeneration
 using StatsBase
 
 """
-`parallel_pmdi(dataFiles, dataTypes, N::Int64, particles::Int64,
+`pmdi(dataFiles, dataTypes, N::Int64, particles::Int64,
 ρ::Float64, iter::Int64, outputFile::String, initialise::Bool,
 output_freq::Int64)`
 Runs particleMDI on specified datasets
@@ -112,6 +112,7 @@ function pmdi(dataFiles, dataTypes, N::Int64, particles::Int64,
     ll = calculate_likelihood(s::Array, Φ::Array, γ::Array, Z::Float64)
     writecsv(fileid, [M; Φ; ll;  s[1:(n_obs * K)]]')
 
+
     order_obs = collect(1:n_obs)
     n1 = Int64(floor(ρ * n_obs))
 
@@ -150,9 +151,6 @@ function pmdi(dataFiles, dataTypes, N::Int64, particles::Int64,
         end
 
         # particle_IDs .= 1
-
-
-
 
         for i in order_obs[n1:n_obs]
             for k in 1:K

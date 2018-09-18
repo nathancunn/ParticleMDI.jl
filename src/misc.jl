@@ -147,11 +147,10 @@ function align_labels!(s::Array, Φ::Array, γ::Array, N::Int64, K::Int64)
                 relevant_Φs = Φ_log[(Φ_lab[:, 1] .== k) .| (Φ_lab[:, 2] .== k)]
                 # for i in 1:(length(unique_sk))
                 for label in unique_sk
-                    new_label = sample(setdiff(unique_s, label))
-                    # for new_label in setdiff(unique_s, label)
+                    # new_label = sample(setdiff(unique_s, label))
+                    for new_label in setdiff(unique_s, label)
                         label_ind = findindices(s[:, k], label)
                         new_label_ind = findindices(s[:, k], new_label)
-
                         label_rows      = s[label_ind, setdiff(1:K, k)]
                         new_label_rows  = s[new_label_ind, setdiff(1:K, k)]
                         log_phi_sum     = sum(sum(label_rows .== label, 1) .* relevant_Φs + sum(new_label_rows .== new_label, 1) .* relevant_Φs)
@@ -168,7 +167,7 @@ function align_labels!(s::Array, Φ::Array, γ::Array, N::Int64, K::Int64)
                             γ[new_label, k] = γ[label, k]
                             γ[label, k] = γ_temp
                         end
-                    # end
+                    end
                 end
             end
         # end

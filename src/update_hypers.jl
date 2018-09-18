@@ -26,9 +26,10 @@ function update_M!(M::Array, γ::Array, K::Int64, N::Int64)
 end
 
 
-@inline function update_Z(Φ::Array, Φ_index::Array, Γ::Array)
+
+function update_Z(Φ::Array, Φ_index::Array, Γ::Array)
     # Update the normalising constant
-    Z = Float64(sum(exp.((Φ_index * (log.(Φ + 1)) + sum(Γ, 2)))))
+    Z = sum(exp.((Φ_index * (log.(Φ .+ 1)) + sum(Γ, 2))))
     return Z
 end
 
@@ -52,7 +53,7 @@ function calculate_likelihood(s::Array, Φ::Array, γ::Array, Z::Float64)
             end
         end
     end
-    return sum(exp.(likelihood) / Z)
+    return sum(exp.(likelihood) ./ Z)
 end
 
 function update_γ!(γ::Array, Φ::Array, v::Float64, M, s::Array, Φ_index::Array, γ_combn::Array, Γ::Array, N::Int64, K::Int64)

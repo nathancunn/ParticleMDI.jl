@@ -38,8 +38,11 @@ function plot_phimatrix(outputFile::String, burnin::Int64, thin::Int64)
         end
     end
     spy(phiMatrix,
+    Guide.xticks(ticks = [1:K;]),
+    Guide.yticks(ticks = [1:K;]),
     Guide.xlabel("Φ(x, ⋅)"),
-    Guide.ylabel("Φ(⋅, y)"))
+    Guide.ylabel("Φ(⋅, y)"),
+    Scale.color_continuous_gradient(colormap = Scale.lab_gradient("#440154", "#1FA187", "#FDE725")))
 end
 
 
@@ -70,5 +73,5 @@ function plot_phichain(outputFile::String, burnin::Int64, thin::Int64)
     Geom.line,
     Guide.xlabel("Iteration"),
     Guide.ylabel("Φ"),
-    Coord.Cartesian(xmax = maximum(phivalues[:Iteration])))
+    Coord.Cartesian(xmax = maximum(phiValues[:Iteration])))
 end

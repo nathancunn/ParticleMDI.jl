@@ -1,4 +1,5 @@
 using Clustering
+using Compose
 using CSV
 using DataFrames
 using Gadfly
@@ -76,14 +77,46 @@ as possible. `orderby` specifies which dataset should be used to inform this ord
 ## Output
 - K + 1 (or K if K == 1) consensus maps illustrating the clustering output in each
 of K datasets.
-*Note: as the output of this is a large SVG file it's typically advisable to
-directly save the output of this as an image file*
+
+**Note: the output of this needs to be saved to file to be viewed. This can be done
+as follows:**
+`using Gadfly
+draw(SVG("path/to/file.svg"), consensus_map(psm, nclust, orderby))`
+**This should be fixed pending a bug fix in the Gadfly packge**
 """
 function consensus_map(psm::Posterior_similarity_matrix, nclust::Int64, orderby::Int64 = 0)
     if orderby == 0
         orderby = size(psm.psm, 1)
     end
-    order = sortperm(hclust(1 - Symmetric(psm.psm[orderby], :L), :average).order)
+    hc = hclust(1 - Symmetric(psm.psm[orderby], :L), :average)
+    cuts = cutree(hc, k = nclust)[hc.order]
+    ticks = indexin(1:nclust, cuts) .+ 0.5
+    order = sortperm(hc.order)
+    K = length(psm.psm)
+    subplots = [spy(Symmetric(psm.psm[k], :L)[hc.order, hc.order],
+                    Coord.cartesian(raster = true,
+                    aspect_ratio = 1.0,
+                    xmin = 0.5, ymin = 0.5,
+                    xmax = size(psm.psm[1], 1) + 0.5,
+                    ymax = size(psm.psm[1], 1) + 0.5,
+                    yflip = true),
+                    Theme(key_position = :none),
+                    Guide.xlabel(psm.names[k]),
+                    Guide.ylabel(""),
+                    Guide.xticks(ticks = ticks),
+                    Guide.yticks(ticks = ticks),
+                    Scale.x_continuous(labels = i -> ""),
+                    Scale.y_continuous(labels = i -> ""),
+                    Scale.color_continuous(colormap=Scale.lab_gradient("#2A186C", "#3B9287", "#FDEF9A"), maxvalue = 1.0))
+                for k in 1:K]
+    return hstack(subplots)
+    """
+    outplot = vstack([Compose.compose(context(0, 0, 1 / (K - 1), 1 / (K - 1)), render(subplots[k])) for k in 1:(K - 1)]...)
+    outplot = hstack(Compose.compose(context(0, 0, 1.0h, 1), render(subplots[K])),
+                    outplot)
+    draw(SVG("test.svg", (width)inch, (width)inch), outplot)
+
+
     plot_df = DataFrame([String, Int64, Int64, Float64],
                         [:Dataset, :x, :y, :ps],
                         size(psm.psm, 1) * size(psm.psm[1], 1) ^ 2)
@@ -116,6 +149,10 @@ function consensus_map(psm::Posterior_similarity_matrix, nclust::Int64, orderby:
                                       ymax = maximum(plot_df[:y]) + 0.5,
                                       yflip = true),
                        Geom.rectbin,
+                       Guide.xticks(ticks = ticks),
+                       Guide.yticks(ticks = ticks),
+                       Guide.xlabel(""),
                        Scale.x_continuous,
                        Scale.y_continuous))
+       """
 end
