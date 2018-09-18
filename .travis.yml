@@ -5,9 +5,12 @@ os:
   - osx
 julia:
   - 0.6.4
-  - nightly
+  - 0.7
+matrix:
+  allow_failures:
+    - julia: 0.7
 notifications:
-  email: true
+  email: false
 git:
   depth: 99999999
 
