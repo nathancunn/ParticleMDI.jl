@@ -1,12 +1,10 @@
 module particleMDI
-
 import Clustering.hclust
-import CSVFiles
 import Distributions
 import Gadfly
-import Iterators
 import NonUniformRandomVariateGeneration
 import StatsBase
+
 
 # Core code
 include("pmdi.jl")

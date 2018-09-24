@@ -1,9 +1,11 @@
-using CSVFiles
+using DelimitedFiles
 using Distributions
-using Distributions
-using Distributions
-using Iterators
+using IterTools
 using NonUniformRandomVariateGeneration
+using Printf
+using Random
+using SpecialFunctions
+using Statistics
 using StatsBase
 
 """
@@ -41,41 +43,41 @@ function pmdi(dataFiles, dataTypes, N::Int64, particles::Int64,
 
     # Initialise the hyperparameters
     M = ones(Float64, K) .* 2 # Mass parameter
-    γ = rand(Gamma(2.0 / N, 1), N, K) .+ eps(Float64) # Component weights
+    γc = rand(Gamma(2.0 / N, 1), N, K) .+ eps(Float64) # Component weights
     Φ = K > 1 ? rand(Gamma(1, 5), Int64(K * (K - 1) * 0.5)) : zeros(1) # Dataset concordance measure
 
-    # Initialise the allocations randomly according to γ
-    s = Matrix{Int64}(n_obs, K)
+    # Initialise the allocations randomly according to γc
+    s = Matrix{Int64}(undef, n_obs, K)
     for k = 1:K
-        s[:, k] = sampleCategorical(n_obs, γ[:, k])
+        s[:, k] = sampleCategorical(n_obs, γc[:, k])
     end
 
     # Get a matrix of all combinations of gammas
-    γ_combn = Matrix{Int64}(N ^ K, K)
-    for (i, p) in enumerate(product([1:N for k = 1:K]...))
-        γ_combn[i, :] = collect(p)
+    γc_combn = Matrix{Int64}(undef, N ^ K, K)
+    for (i, p) in enumerate(Iterators.product([1:N for k = 1:K]...))
+        γc_combn[i, :] = collect(p)
     end
 
     # The actual corresponding gammas
-    Γ = Matrix{Float64}(N ^ K, K)
+    Γc = Matrix{Float64}(undef, N ^ K, K)
     for k = 1:K
-        Γ[:, k] = log.(γ[:, k][γ_combn[:, k]])
+        Γc[:, k] = log.(γc[:, k][γc_combn[:, k]])
     end
 
     # Which Φ value is activated by each of the above combinations
-    Φ_index = K > 1 ? Matrix{Int64}(N ^ K, Int64(K * (K - 1) / 2)) : ones(Matrix{Int64}(N, 1), Int64)
+    Φ_index = K > 1 ? Matrix{Int64}(undef, N ^ K, Int64(K * (K - 1) / 2)) : fill(1, (N, 1))
     if K > 1
         i = 1
         for k1 in 1:(K - 1)
             for k2 in (k1 + 1):K
-                Φ_index[:, i] = (γ_combn[:, k1] .== γ_combn[:, k2])
+                Φ_index[:, i] = (γc_combn[:, k1] .== γc_combn[:, k2])
                 i += 1
             end
         end
     end
 
     # Normalising constant
-    Z = update_Z(Φ, Φ_index, Γ)
+    Z = update_Z(Φ, Φ_index, Γc)
     v = update_v(n_obs, Z)
 
 
@@ -86,16 +88,16 @@ function pmdi(dataFiles, dataTypes, N::Int64, particles::Int64,
     # Proposed cluster allocations
     sstar = zeros(Int64, particles, K)
     # Mutation weights
-    logprob = [Vector{Float64}(N * particles + 1) for k in 1:K]
+    logprob = [Vector{Float64}(undef, N * particles + 1) for k in 1:K]
 
 
     # Initialise the particles
-    particle_IDs = ones(Matrix{Int64}(particles, 2))
-    particle = [ones(Int64, N, particles) for k in 1:K]
-    logprob_particle = [Matrix{Float64}(N, particles) for k in 1:K]
+    particle_IDs = fill(1, (particles, 2))
+    particle = [fill(1, (N, particles)) for k in 1:K]
+    logprob_particle = [Matrix{Float64}(undef, N, particles) for k in 1:K]
 
-    clusters = [Vector{dataTypes[k]}(N * particles + 1) for k in 1:K]
-    sstar_id = Matrix{Int64}(particles, K)
+    clusters = [Vector{dataTypes[k]}(undef, N * particles + 1) for k in 1:K]
+    sstar_id = Matrix{Int64}(undef, particles, K)
     sstar = zeros(Int64, particles, n_obs, K)
 
     out = [map(x -> @sprintf("MassParameter_%d", x), 1:K);
@@ -107,10 +109,10 @@ function pmdi(dataFiles, dataTypes, N::Int64, particles::Int64,
                repeat(1:K, inner = n_obs),
                repeat(1:n_obs, outer = K))]
     out =  reshape(out, 1, length(out))
-    writecsv(outputFile, out)
+    writedlm(outputFile, out, ',')
     fileid = open(outputFile, "a")
-    ll = calculate_likelihood(s::Array, Φ::Array, γ::Array, Z::Float64)
-    writecsv(fileid, [M; Φ; ll;  s[1:(n_obs * K)]]')
+    ll = calculate_likelihood(s::Array, Φ::Array, γc::Array, Z::Float64)
+    writedlm(fileid, [M; Φ; ll;  s[1:(n_obs * K)]]', ',')
 
 
     order_obs = collect(1:n_obs)
@@ -120,16 +122,16 @@ function pmdi(dataFiles, dataTypes, N::Int64, particles::Int64,
         shuffle!(order_obs)
 
         # Update hyperparameters
-        update_Φ!(Φ, v, s, Φ_index, γ, K, Γ)
-        update_γ!(γ, Φ, v, M, s, Φ_index, γ_combn, Γ, N, K)
-        Π = γ ./ sum(γ, 1)
-        Z = update_Z(Φ, Φ_index, Γ)
+        update_Φ!(Φ, v, s, Φ_index, γc, K, Γc)
+        update_γ!(γc, Φ, v, M, s, Φ_index, γc_combn, Γc, N, K)
+        Π = γc ./ sum(γc, dims = 1)
+        Z = update_Z(Φ, Φ_index, Γc)
         v = update_v(n_obs, Z)
-        update_M!(M, γ, K, N)
+        update_M!(M, γc, K, N)
 
         for k = 1:K
             for i = 1:(N ^ K)
-                Γ[i, k] = log(γ[γ_combn[i, k], k])
+                Γc[i, k] = log(γc[γc_combn[i, k], k])
             end
         end
 
@@ -143,9 +145,9 @@ function pmdi(dataFiles, dataTypes, N::Int64, particles::Int64,
                 id += 1
             end
             for i in order_obs[1:(n1 - 1)]
-                id = findin(us, s[i, k])[1] + 1
+                id = findall((in)(s[i, k]), us)[1] + 1
                 cluster_add!(clusters[k][id], dataFiles[k][i, :])
-                particle[k][s[i, k], :] = id
+                particle[k][s[i, k], :] .= id
                 sstar[:, i, k] .= s[i, k]
             end
         end
@@ -174,9 +176,9 @@ function pmdi(dataFiles, dataTypes, N::Int64, particles::Int64,
                     @inbounds fprob = logprob_particle[k][:, p]
                     max_logprob = maximum(fprob)
                     for n in 1:N
-                        @inbounds fprob[n] = Π[n, k] * Base.Math.JuliaLibm.exp(fprob[n] - max_logprob)
+                        @inbounds fprob[n] = Π[n, k] * exp(fprob[n] - max_logprob)
                     end
-                    logweight[p] += Base.Math.JuliaLibm.log(sum(fprob)) + max_logprob
+                    logweight[p] += log(sum(fprob)) + max_logprob
                     # Set reference trajectory
                     if p != 1
                         new_s = sample(1:N, Weights(fprob))
@@ -236,10 +238,10 @@ function pmdi(dataFiles, dataTypes, N::Int64, particles::Int64,
         logweight .= 1.0
         s[:] = sstar[p_star, :, :]
         # Match up labels across datasets
-        align_labels!(s, Φ, γ, N, K)
+        align_labels!(s, Φ, γc, N, K)
 
-        ll = calculate_likelihood(s::Array, Φ::Array, γ::Array, Z::Float64)
-        writecsv(fileid, [M; Φ; ll; s[1:(n_obs * K)]]')
+        ll = calculate_likelihood(s::Array, Φ::Array, γc::Array, Z::Float64)
+        writedlm(fileid, [M; Φ; ll; s[1:(n_obs * K)]]', ',')
     end
     close(fileid)
     return s

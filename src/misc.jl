@@ -1,5 +1,5 @@
 function calculate_Φ_lab(K::Int64)
-    Φ_lab = K > 1 ? Matrix{Int64}(Int64(K * (K - 1) / 2), 2) : ones(Int64, 1, 2)
+    Φ_lab = K > 1 ? Matrix{Int64}(undef, Int64(K * (K - 1) / 2), 2) : fill(1, (1, 2))
     if K > 1
         i = 1
         for k1 in 1:(K - 1)
@@ -27,9 +27,9 @@ function draw_sstar!(sstar::Array, logprob, particle::Array, particle_IDs::Array
             @inbounds sstar[particle_flag, k] = sampleCategorical(length(particle_flag), fprob)
             # Update ancestor weights
             for p_flag in particle_flag
-                @inbounds @fastmath ancestor_weights[p_flag] += Base.Math.JuliaLibm.log(fprob[s[k]] + eps(Float64))
+                @inbounds @fastmath ancestor_weights[p_flag] += log(fprob[s[k]] + eps(Float64))
                 # Update logweight
-                @inbounds @fastmath logweight[p_flag] += Base.Math.JuliaLibm.log(sum(fprob)) + max_p
+                @inbounds @fastmath logweight[p_flag] += log(sum(fprob)) + max_p
             end
         end
     end
@@ -47,9 +47,9 @@ function draw_sstar_p!(sstar, logprob, Π::Array, N::Int64, ancestor_weights::Ve
     @inbounds sstar = sampleCategorical(length(sstar), fprob)
     # Update ancestor weights
     #for p_flag in particle_flag
-    @inbounds @fastmath ancestor_weights += Base.Math.JuliaLibm.log(fprob[s] + eps(Float64))
+    @inbounds @fastmath ancestor_weights += log(fprob[s] + eps(Float64))
         # Update logweight
-        @inbounds @fastmath logweight .+= Base.Math.JuliaLibm.log(sum(fprob)) + max_p
+        @inbounds @fastmath logweight .+= log(sum(fprob)) + max_p
     #end
     return (sstar, logweight)
 end
@@ -86,7 +86,7 @@ end
     ESSdenom = 0.0
     max_l = maximum(logweight)
     for l in logweight
-        num = Base.Math.JuliaLibm.exp(l - max_l)
+        num = exp(l - max_l)
         ESSnum += num
         ESSdenom += num ^ 2
     end
@@ -139,7 +139,7 @@ function align_labels!(s::Array, Φ::Array, γ::Array, N::Int64, K::Int64)
         return
     else
         Φ_lab = calculate_Φ_lab(K)
-        Φ_log = log.(1 + Φ)
+        Φ_log = log.(Φ .+ 1)
         unique_s = unique(s)
         #if length(unique_s) > 1
             for k = 1:K
@@ -147,14 +147,14 @@ function align_labels!(s::Array, Φ::Array, γ::Array, N::Int64, K::Int64)
                 relevant_Φs = Φ_log[(Φ_lab[:, 1] .== k) .| (Φ_lab[:, 2] .== k)]
                 # for i in 1:(length(unique_sk))
                 for label in unique_sk
-                    # new_label = sample(setdiff(unique_s, label))
-                    for new_label in setdiff(unique_s, label)
+                    new_label = sample(setdiff(unique_s, label))
+                    # for new_label in setdiff(unique_s, label)
                         label_ind = findindices(s[:, k], label)
                         new_label_ind = findindices(s[:, k], new_label)
                         label_rows      = s[label_ind, setdiff(1:K, k)]
                         new_label_rows  = s[new_label_ind, setdiff(1:K, k)]
-                        log_phi_sum     = sum(sum(label_rows .== label, 1) .* relevant_Φs + sum(new_label_rows .== new_label, 1) .* relevant_Φs)
-                        log_phi_sum_swap = sum(sum(label_rows .== new_label, 1) .* relevant_Φs + sum(new_label_rows .== label, 1) .* relevant_Φs)
+                        log_phi_sum     = sum(sum(label_rows .== label, dims = 1) .* relevant_Φs + sum(new_label_rows .== new_label, dims = 1) .* relevant_Φs)
+                        log_phi_sum_swap = sum(sum(label_rows .== new_label, dims = 1) .* relevant_Φs + sum(new_label_rows .== label, dims = 1) .* relevant_Φs)
 
                         accept = min(1, exp(log_phi_sum_swap - log_phi_sum))
 
@@ -168,7 +168,7 @@ function align_labels!(s::Array, Φ::Array, γ::Array, N::Int64, K::Int64)
                             γ[label, k] = γ_temp
                         end
                     end
-                end
+                # end
             end
         # end
     end

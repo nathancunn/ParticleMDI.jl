@@ -1,4 +1,4 @@
-@inline function update_v(n_obs::Int64, Z::Float64)
+function update_v(n_obs::Int64, Z::Float64)
     return rand(Gamma(n_obs, 1 / Z))
 end
 
@@ -26,10 +26,9 @@ function update_M!(M::Array, γ::Array, K::Int64, N::Int64)
 end
 
 
-
 function update_Z(Φ::Array, Φ_index::Array, Γ::Array)
     # Update the normalising constant
-    Z = sum(exp.((Φ_index * (log.(Φ .+ 1)) + sum(Γ, 2))))
+    Z = sum(exp.((Φ_index * (log.(Φ .+ 1)) + sum(Γ, dims = 2))))
     return Z
 end
 
@@ -37,17 +36,17 @@ function calculate_likelihood(s::Array, Φ::Array, γ::Array, Z::Float64)
     likelihood = zeros(Float64, (size(s, 1)))
     Φ_log = similar(Φ)
     for i in eachindex(Φ)
-        Φ_log[i] = Base.Math.JuliaLibm.log(1 + Φ[i])
+        Φ_log[i] = log(1 + Φ[i])
     end
     for i in 1:size(s, 1)
         for k in 1:size(s, 2)
-            likelihood[i] += Base.Math.JuliaLibm.log(γ[s[i, k], k])
+            likelihood[i] += log(γ[s[i, k], k])
         end
         if size(s, 2) > 1
             ϕ = 1
             for k1 in 1:(size(s, 2) - 1)
                 for k2 in (k1 + 1):(size(s, 2))
-                    likelihood += Φ_log[ϕ] * s[i, k1] == s[i, k2]
+                    likelihood .+= Φ_log[ϕ] * s[i, k1] == s[i, k2]
                     ϕ += 1
                 end
             end
@@ -58,8 +57,8 @@ end
 
 function update_γ!(γ::Array, Φ::Array, v::Float64, M, s::Array, Φ_index::Array, γ_combn::Array, Γ::Array, N::Int64, K::Int64)
     β_0 = 1.0
-    Φ_log = log.(Φ + 1)
-    α_star = Matrix{Float64}(N, K)
+    Φ_log = log.(Φ .+ 1)
+    α_star = Matrix{Float64}(undef, N, K)
     for k = 1:K
         for n = 1:N
             # @inbounds α_star[n, k] = α_0 + sum(s_k .== n)
@@ -67,7 +66,7 @@ function update_γ!(γ::Array, Φ::Array, v::Float64, M, s::Array, Φ_index::Arr
             @inbounds α_star[n, k] = M[k] / N + countn(s[:, k], n)
         end
     end
-    norm_temp = Φ_index * Φ_log + sum(Γ, 2)
+    norm_temp = Φ_index * Φ_log + sum(Γ, dims = 2)
     norm_temp = exp.(norm_temp)
     for k = 1:K
         @inbounds γ_combn_k = γ_combn[:, k]
@@ -95,8 +94,8 @@ function update_Φ!(Φ, v::Float64, s, Φ_index, γ, K::Int64, Γ)
         α_0 = 1.0
         β_0 = 0.2
         Φ_lab = calculate_Φ_lab(K)
-        Φ_log = log.(Φ + 1)
-        norm_temp = Φ_index * Φ_log + sum(Γ, 2)
+        Φ_log = log.(Φ .+ 1)
+        norm_temp = Φ_index * Φ_log + sum(Γ, dims = 2)
         @fastmath norm_temp = exp.(norm_temp)
         for i in 1:length(Φ)
             # Get relevant allocations
@@ -107,7 +106,7 @@ function update_Φ!(Φ, v::Float64, s, Φ_index, γ, K::Int64, Γ)
             @inbounds pertinent_rows = Φ_index[:, i] .== 1
             @inbounds β_star = β_0 + v * sum(norm_temp[pertinent_rows, :]) / (1 + Φ_current)
             #weights = cumsum(log.((0:n_agree) .+ α_0))  # Add initial 1 to account for zero case
-            weights = lgamma.((0:n_agree) + α_0)
+            weights = lgamma.((0:n_agree) .+ α_0)
             # weights = gamma.((0:n_agree) .+ α_0)
             weights += logpdf.(Binomial(n_agree, 0.5), 0:n_agree)
             # weights += log.(binomial.(n_agree, 0:n_agree))
@@ -122,7 +121,7 @@ function update_Φ!(Φ, v::Float64, s, Φ_index, γ, K::Int64, Γ)
             #    println((ones(1 +  n_agree) .* log(β_star)))
             #end
 
-            α_star = α_0 + sample(0:n_agree, Weights(exp.(weights - maximum(weights))))
+            α_star = α_0 + sample(0:n_agree, Weights(exp.(weights .- maximum(weights))))
             @inbounds Φ[i] = rand(Gamma(α_star, 1 / β_star)) + eps(Float64)
             # @inbounds Φ_log[i] = log(Φ[i] + 1)
             # Update the normalising constant values to account for this update

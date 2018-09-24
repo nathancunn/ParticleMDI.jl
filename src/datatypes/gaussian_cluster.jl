@@ -1,3 +1,4 @@
+using Statistics
 ## Define a particle consisting of all cluster variables for a Gaussian mixture
 ## N is no. of potential clusters
 ## d is dimension of data
@@ -20,13 +21,13 @@ end
 function calc_logprob(obs::Array, cl::GaussianCluster)
   # Iterate over clusters
   n = cl.n * 0.5 + 0.5
-  out = length(obs) * (Base.Math.JuliaLibm.lgamma((n) + 0.5) -
-                                                Base.Math.JuliaLibm.lgamma(n) -
+  out = length(obs) * (SpecialFunctions.lgamma((n) + 0.5) -
+                                                SpecialFunctions.lgamma(n) -
                                                 0.5723649429247001)
   # Iterate over features
     for q in 1:length(obs)
-        out +=  0.5 * Base.Math.JuliaLibm.log(cl.λ[q] / n) -
-                            (n + 0.5) * Base.Math.JuliaLibm.log((1.0 / n) *
+        out +=  0.5 * log(cl.λ[q] / n) -
+                            (n + 0.5) * log((1.0 / n) *
                             (obs[q] - cl.μ[q]) ^ 2.0 * cl.λ[q] + 1.0)
     end
 
