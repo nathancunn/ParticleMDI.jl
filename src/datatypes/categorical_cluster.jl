@@ -5,20 +5,20 @@ mutable struct CategoricalCluster
   nlevels::Array{Float64}           # The denominator in logprob calculation
   CategoricalCluster(dataFile::Matrix{Int64}) = new(0,
                                         [zeros(Int64, maximum(dataFile[:, d])) for d = 1:size(dataFile, 2)],
-                                        0.5 * mapslices(maximum, dataFile, 1))
+                                        0.5 * mapslices(maximum, dataFile, dims = 1))
 end
 
 function calc_logprob(obs::Array{Int64}, cl::CategoricalCluster)
   out = 0.0
   for nlev in cl.nlevels
-    out -= Base.Math.JuliaLibm.log(nlev + cl.n)
+    out -= log(nlev + cl.n)
   end
 #  out = - sum(log.(cl.nlevels .+ cl.n))
   for q in 1:length(obs)
     if cl.n == 0
-      @inbounds out += Base.Math.JuliaLibm.log(0.5)
+      @inbounds out += log(0.5)
     else
-      @inbounds out += Base.Math.JuliaLibm.log(0.5 + cl.counts[q][obs[q]])
+      @inbounds out += log(0.5 + cl.counts[q][obs[q]])
     end
   end
   return out

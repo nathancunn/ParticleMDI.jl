@@ -1,5 +1,6 @@
 [deps]
 Clustering = "aaaa29a8-35af-508c-8bc3-b662a17a0fe5"
 DataFrames = "a93c6f00-e57d-5684-b7b6-d8193f3e46c0"
+DelimitedFiles = "8bb1440f-4735-579b-a4ab-409b98df4dab"
 IterTools = "c8e1da08-722c-5040-9ed9-7db0dc04731e"
 Printf = "de0858da-6303-5e67-8744-51eddeeeb8d7"
