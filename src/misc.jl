@@ -129,10 +129,14 @@ function findZindices(k, K, n, N)
     # by searching the vector
     # We can know this in advance
     # This way is >10x faster for larger problems
-    out = zeros(Bool, N ^ K)
+    out = zeros(Int, N ^ (K - 1))
     start = (n - 1) * N ^ (k - 1) + 1
+    ind = 1
     for i in 1:(N ^ (K - k))
-        out[start:(start - 1 + N ^ (k - 1))] .= true
+        for j in start:(start - 1 + N ^ (k - 1))
+            out[ind] = j
+            ind += 1
+        end
         start += N ^ k
     end
     return out

@@ -71,14 +71,12 @@ function update_γ!(γ::Array, Φ::Array, v::Float64, M, s::Array, Φ_index::Arr
     for k = 1:K
         @inbounds γ_combn_k = γ_combn[:, k]
          for n = 1:N
-            # pertinent_rows = γ_combn_k .== n
-            pertinent_rows = findindices(γ_combn_k, n)
+            pertinent_rows = findZindices(k, K, n, N)
             old_γ = γ[n, k] + 0.0
-
             # @inbounds β_star = β_0 + v * sum(exp.(Φ_index[pertinent_rows, :] * Φ_log + sum(Γ[pertinent_rows, :], 2))) / γ[n, k]
-            @inbounds β_star = β_0 + v * sum((norm_temp[pertinent_rows])) / γ[n, k]
+            @inbounds β_star = β_0 + v * sum((norm_temp[findall(pertinent_rows)])) / γ[n, k]
             @inbounds γ[n, k] = rand(Gamma(α_star[n, k], 1 / β_star)) + eps(Float64)
-            norm_temp[pertinent_rows] .*= γ[n, k] / old_γ
+            @inbounds norm_temp[pertinent_rows] .*= γ[n, k] / old_γ
         end
     end
     return
