@@ -2,12 +2,13 @@ using Clustering
 using Compose
 using DataFrames
 using Gadfly
+using LinearAlgebra
 
 mutable struct Posterior_similarity_matrix
     psm::Vector
     names::Vector{String}
-    Posterior_similarity_matrix(K, n_obs) = new([eye(n_obs) for k in 1:(K + (K > 1))],
-                                                Vector{String}(K + (K > 1)))
+    Posterior_similarity_matrix(K, n_obs) = new([Matrix(1.0I, n_obs, n_obs) for k in 1:(K + (K > 1))],
+                                                Vector{String}(undef, K + (K > 1)))
 end
 
 
@@ -30,9 +31,9 @@ A struct of class `Posterior_similarity_matrix` containing:
 """
 function generate_psm(outputFile::String, burnin::Int64 = 0, thin::Int64 = 1)
     outputNames = split(readline(outputFile), ',')
-    output = readcsv(outputFile, header = false, skipstart = burnin + 1)
+    output = readdlm(outputFile, ',', header = false, skipstart = burnin + 1)
 
-    K = sum(ismatch.(r"MassParameter", outputNames))
+    K = sum(occursin.(r"MassParameter", outputNames))
 
     output = output[1:thin:end, (K + binomial(K, 2) + (K == 1) + 2):end]
 
@@ -87,7 +88,7 @@ function consensus_map(psm::Posterior_similarity_matrix, nclust::Int64, orderby:
     if orderby == 0
         orderby = size(psm.psm, 1)
     end
-    hc = hclust(1 - Symmetric(psm.psm[orderby], :L), :average)
+    hc = hclust(1 .- Symmetric(psm.psm[orderby], :L), linkage = :average, uplo = :L)
     cuts = cutree(hc, k = nclust)[hc.order]
     ticks = indexin(1:nclust, cuts) .+ 0.5
     order = sortperm(hc.order)
