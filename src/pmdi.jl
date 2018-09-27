@@ -92,7 +92,6 @@ function pmdi(dataFiles, dataTypes, N::Int64, particles::Int64,
 
 
     # Initialise the particles
-    particle_IDs = fill(1, (particles, 2))
     particle = [fill(1, (N, particles)) for k in 1:K]
     logprob_particle = [Matrix{Float64}(undef, N, particles) for k in 1:K]
 
