@@ -65,7 +65,7 @@ function pmdi(dataFiles, dataTypes, N::Int64, particles::Int64,
     end
 
     # Which Φ value is activated by each of the above combinations
-    Φ_index = K > 1 ? Matrix{Int64}(undef, N ^ K, Int64(K * (K - 1) / 2)) : fill(1, (N, 1))
+    Φ_index = K > 1 ? Matrix{Bool}(undef, N ^ K, Int64(K * (K - 1) / 2)) : fill(1, (N, 1))
     if K > 1
         i = 1
         for k1 in 1:(K - 1)
@@ -98,7 +98,6 @@ function pmdi(dataFiles, dataTypes, N::Int64, particles::Int64,
     clusters = [Vector{dataTypes[k]}(undef, N * particles + 1) for k in 1:K]
     sstar_id = Matrix{Int64}(undef, particles, K)
     sstar = zeros(Int64, particles, n_obs, K)
-
     out = [map(x -> @sprintf("MassParameter_%d", x), 1:K);
                map((x, y) -> @sprintf("phi_%d_%d", x, y),
                calculate_Φ_lab(K)[:, 1],
@@ -115,7 +114,7 @@ function pmdi(dataFiles, dataTypes, N::Int64, particles::Int64,
 
 
     order_obs = collect(1:n_obs)
-    n1 = Int64(floor(ρ * n_obs))
+    n1 = floor(Int, ρ * n_obs)
 
     for it in 1:iter
         shuffle!(order_obs)
@@ -184,8 +183,8 @@ function pmdi(dataFiles, dataTypes, N::Int64, particles::Int64,
                     else
                         new_s = s[i, k]
                     end
-                    sstar_id[p, k] = particle[k][new_s, p]
-                    sstar[p, i, k] = new_s
+                    @inbounds sstar_id[p, k] = particle[k][new_s, p]
+                    @inbounds sstar[p, i, k] = new_s
                 end
 
                 # Add observation to new cluster

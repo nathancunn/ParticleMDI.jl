@@ -74,7 +74,7 @@ function update_γ!(γ::Array, Φ::Array, v::Float64, M, s::Array, Φ_index::Arr
             pertinent_rows = findZindices(k, K, n, N)
             old_γ = γ[n, k] + 0.0
             # @inbounds β_star = β_0 + v * sum(exp.(Φ_index[pertinent_rows, :] * Φ_log + sum(Γ[pertinent_rows, :], 2))) / γ[n, k]
-            @inbounds β_star = β_0 + v * sum((norm_temp[findall(pertinent_rows)])) / γ[n, k]
+            @inbounds β_star = β_0 + v * sum((norm_temp[pertinent_rows])) / γ[n, k]
             @inbounds γ[n, k] = rand(Gamma(α_star[n, k], 1 / β_star)) + eps(Float64)
             @inbounds norm_temp[pertinent_rows] .*= γ[n, k] / old_γ
         end
@@ -101,7 +101,7 @@ function update_Φ!(Φ, v::Float64, s, Φ_index, γ, K::Int64, Γ)
             @inbounds Φ_current = Φ[i] + 0.0
             @inbounds n_agree = sum(current_allocations[:, 1] .== current_allocations[:, 2])
             # Get relevant terms in the normalisation constant Terms that include the current phi
-            @inbounds pertinent_rows = Φ_index[:, i] .== 1
+            @inbounds pertinent_rows = findall(Φ_index[:, i])
             @inbounds β_star = β_0 + v * sum(norm_temp[pertinent_rows, :]) / (1 + Φ_current)
             #weights = cumsum(log.((0:n_agree) .+ α_0))  # Add initial 1 to account for zero case
             weights = lgamma.((0:n_agree) .+ α_0)
@@ -123,7 +123,7 @@ function update_Φ!(Φ, v::Float64, s, Φ_index, γ, K::Int64, Γ)
             @inbounds Φ[i] = rand(Gamma(α_star, 1 / β_star)) + eps(Float64)
             # @inbounds Φ_log[i] = log(Φ[i] + 1)
             # Update the normalising constant values to account for this update
-            @inbounds norm_temp[pertinent_rows] .*= (1 + Φ[i]) / (1 + Φ_current)
+            @inbounds norm_temp[pertinent_rows, :] .*= (1 + Φ[i]) / (1 + Φ_current)
 
         end
     end
