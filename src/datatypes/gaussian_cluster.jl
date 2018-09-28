@@ -26,14 +26,13 @@ function calc_logprob(obs::Array, cl::GaussianCluster)
                                                 0.5723649429247001)
   # Iterate over features
     for q in 1:length(obs)
-        out +=  0.5 * log(cl.λ[q] / n) -
+    @inbounds    out +=  0.5 * log(cl.λ[q] / n) -
                             (n + 0.5) * log((1.0 / n) *
                             (obs[q] - cl.μ[q]) ^ 2.0 * cl.λ[q] + 1.0)
     end
 
     return out
 end
-
 function cluster_add!(cl::GaussianCluster, obs::Array)
   @inbounds for q = 1:length(obs)
     cl.β[q]  -= 0.5 * (- 2.0 * cl.Σ[q] * cl.μ[q] +
