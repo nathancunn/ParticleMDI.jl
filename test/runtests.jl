@@ -50,7 +50,5 @@ for x in unique(test_data)
     @test sum(test_data .== x) == test_cluster.counts[1][x]
 end
 
-@test particleMDI.calc_logprob([1], test_cluster) ==
-      log((sum(test_data .== 1) + 0.5) / (1005))
-
-      
+@test isapprox(particleMDI.calc_logprob([1], test_cluster),
+      log((sum(test_data .== 1) + 0.5) / (1005)))
