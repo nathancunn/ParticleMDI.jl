@@ -52,7 +52,7 @@ end
 Given this, we then need to define a function which returns the log posterior predictive of an observation belonging to this cluster, given the allocations already assigned to it. In this case, all we need to know is does the cluster contain positive or negative numbers. 
 
 ```jl
-function particleMDI.calc_logprob(cl::SignCluster, obs)
+function particleMDI.calc_logprob(obs, cl::SignCluster)
     if cl.n == 0
         return log(0.5)
     else
