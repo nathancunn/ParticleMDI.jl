@@ -16,7 +16,7 @@ Outputs a heatmap of pairwise dataset Φ values
 """
 function plot_phimatrix(outputFile::String, burnin::Int64, thin::Int64)
     outputNames = split(readline(outputFile), ',')
-    phiColumns = ismatch.(r"phi_", outputNames)
+    phiColumns = occursin.(r"phi_", outputNames)
     output = readcsv(outputFile, header = false, skipstart = burnin + 1)
 
     phiValues = DataFrame(output[1:thin:end, phiColumns])
@@ -26,14 +26,14 @@ function plot_phimatrix(outputFile::String, burnin::Int64, thin::Int64)
 
     K = Int64(0.5 + sqrt(8 * nphis + 1) * 0.5)
     @assert K > 1 "Φ not inferred for no. of datasets = 1"
-    phiMatrix = Matrix{Float64}(K, K)
-    phiMatrix[:] = NaN
+    phiMatrix = Matrix{Float64}(undef, K, K)
+    phiMatrix .= NaN
 
-    count = 1
+    i = 1
     for k1 = 1:(K - 1)
         for k2 = (k1 + 1):K
-            phiMatrix[k1, k2] = phiMatrix[k2, k1] = mean(output[:, K + count])
-            count += 1
+            phiMatrix[k1, k2] = phiMatrix[k2, k1] = Statistics.mean(output[:, K + i])
+            i += 1
         end
     end
     spy(phiMatrix,

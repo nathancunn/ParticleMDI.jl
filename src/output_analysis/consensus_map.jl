@@ -32,7 +32,6 @@ A struct of class `Posterior_similarity_matrix` containing:
 function generate_psm(outputFile::String, burnin::Int64 = 0, thin::Int64 = 1)
     outputNames = split(readline(outputFile), ',')
     output = readdlm(outputFile, ',', header = false, skipstart = burnin + 1)
-
     K = sum(occursin.(r"MassParameter", outputNames))
 
     output = output[1:thin:end, (K + binomial(K, 2) + (K == 1) + 2):end]
@@ -64,6 +63,41 @@ function generate_psm(outputFile::String, burnin::Int64 = 0, thin::Int64 = 1)
     return psm
 end
 
+function generate_psm2(output, K, n_obs)
+    output = output[(K + binomial(K, 2) + (K == 1) + 2):end]
+
+    n_iter = size(output, 1)
+
+    psm = Posterior_similarity_matrix(K, n_obs)
+    for k = 1:K
+        for j = 1:(n_obs - 1)
+            for i = (j + 1):n_obs
+                psm.psm[k][i, j] = sum(output[i + n_obs * (k - 1)] .== output[j + n_obs * (k - 1)]) / n_iter
+            end
+        end
+    end
+    if K > 1
+        for k = 1:K
+            psm.psm[K + 1] += psm.psm[k] / K
+        end
+            psm.psm[K + 1][diagind(psm.psm[K + 1])] .= 1.0
+    end
+    return psm
+end
+
+"""
+`get_consensus_allocations(psm::Posterior_similarity_matrix, nclust::Int64, orderby::Int64 = 0)`
+"""
+function get_consensus_allocations(psm::Posterior_similarity_matrix, nclust::Int64, orderby::Int64 = 0)
+    if orderby == 0
+        orderby = size(psm.psm, 1)
+    end
+    hc = hclust(1 .- Symmetric(psm.psm[orderby], :L), linkage = :complete, uplo = :L)
+    return cutree(hc, k = nclust)
+end
+
+
+
 """
 `consensus_map(psm::Posterior_similarity_matrix, nclust::Int64, orderby::Int64 = 0)`
 
@@ -88,7 +122,7 @@ function consensus_map(psm::Posterior_similarity_matrix, nclust::Int64, orderby:
     if orderby == 0
         orderby = size(psm.psm, 1)
     end
-    hc = hclust(1 .- Symmetric(psm.psm[orderby], :L), linkage = :average, uplo = :L)
+    hc = hclust(1 .- Symmetric(psm.psm[orderby], :L), linkage = :complete, uplo = :L)
     cuts = cutree(hc, k = nclust)[hc.order]
     ticks = indexin(1:nclust, cuts) .+ 0.5
     order = sortperm(hc.order)

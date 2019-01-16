@@ -15,7 +15,7 @@ mutable struct GaussianCluster
                                       Vector{Float64}(zeros(Float64, size(dataFile, 2))),
                                       Vector{Float64}(zeros(Float64, size(dataFile, 2))),
                                       Vector{Float64}(ones(Float64, size(dataFile, 2))),
-                                      Vector{Float64}(ones(Float64, size(dataFile, 2))))
+                                      Vector{Float64}(ones(Float64, size(dataFile, 2))) .* 0.5)
 end
 
 function calc_logprob(obs::Array, cl::GaussianCluster)
@@ -40,7 +40,7 @@ function calc_logprob(obs::Array, cl::GaussianCluster)
     # Iterate over features
     # Need to fix this :eyeroll:
       for q in 1:size(obs, 1)
-        @inbounds out += 0.5 * (log(cl.λ[q]) - log(cl.n + 1.0)) -
+        @fastmath @inbounds out += 0.5 * (log(cl.λ[q]) - log(cl.n + 1.0)) -
                         (0.5 * cl.n + 1.0) *
                         log(1.0 + (1.0 / (cl.n + 1.0)) *
                         ((obs[q] - cl.μ[q]) ^ 2.0) * cl.λ[q])

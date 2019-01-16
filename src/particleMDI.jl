@@ -14,6 +14,7 @@ include("update_hypers.jl")
 # Datatype specific
 include("datatypes/gaussian_cluster.jl")
 include("datatypes/categorical_cluster.jl")
+include("datatypes/binom_cluster.jl")
 
 # Output analysis
 include("output_analysis/acf_plots.jl")

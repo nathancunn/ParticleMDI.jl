@@ -109,14 +109,19 @@ function pmdi(dataFiles, dataTypes, N::Int64, particles::Int64,
     out =  reshape(out, 1, length(out))
     writedlm(outputFile, out, ',')
     fileid = open(outputFile, "a")
-    ll = calculate_likelihood(s::Array, Φ::Array, γc::Array, Z::Float64)
+    # ll = calculate_likelihood(s::Array, Φ::Array, γc::Array, Z::Float64)
+    ll = 0
+    ll1 = time_ns()
     writedlm(fileid, [M; Φ; ll;  s[1:(n_obs * K)]]', ',')
 
 
     order_obs = collect(1:n_obs)
     n1 = floor(Int, ρ * n_obs)
+    # it = 1
 
     for it in 1:iter
+    # while ((time_ns() - ll1) / 1.0e9) < 60
+        # it += 1
         shuffle!(order_obs)
 
         # Update hyperparameters
@@ -238,7 +243,8 @@ function pmdi(dataFiles, dataTypes, N::Int64, particles::Int64,
         # Match up labels across datasets
         align_labels!(s, Φ, γc, N, K)
 
-        ll = calculate_likelihood(s::Array, Φ::Array, γc::Array, Z::Float64)
+        # ll = calculate_likelihood(s::Array, Φ::Array, γc::Array, Z::Float64)
+        ll = (time_ns() - ll1) / 1.0e9
         writedlm(fileid, [M; Φ; ll; s[1:(n_obs * K)]]', ',')
     end
     close(fileid)

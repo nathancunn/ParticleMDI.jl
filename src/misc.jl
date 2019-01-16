@@ -73,11 +73,12 @@ function align_labels!(s::Array, Φ::Array, γ::Array, N::Int64, K::Int64)
         #if length(unique_s) > 1
             for k = 1:K
                 unique_sk = unique(s[:, k])
-                relevant_Φs = Φ_log[(Φ_lab[:, 1] .== k) .| (Φ_lab[:, 2] .== k)]
-                # for i in 1:(length(unique_sk))
-                for label in unique_sk
-                    new_label = sample(setdiff(unique_s, label))
-                    # for new_label in setdiff(unique_s, label)
+                if length(unique_sk) > 1
+                    relevant_Φs = Φ_log[(Φ_lab[:, 1] .== k) .| (Φ_lab[:, 2] .== k)]
+                    # for i in 1:(length(unique_sk))
+                    for label in unique_sk
+                        new_label = sample(setdiff(unique_s, label))
+                        # for new_label in setdiff(unique_s, label)
                         # label_ind = findindices(s[:, k], label)
                         label_ind = findall(s[:, k] .== label)
                         # new_label_ind = findindices(s[:, k], new_label)
@@ -99,7 +100,7 @@ function align_labels!(s::Array, Φ::Array, γ::Array, N::Int64, K::Int64)
                             γ[label, k] = γ_temp
                         end
                     end
-                # end
+                end
             end
         # end
     end

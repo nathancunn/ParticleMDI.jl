@@ -103,25 +103,11 @@ function update_Φ!(Φ, v::Float64, s, Φ_index, γ, K::Int64, Γ)
             # Get relevant terms in the normalisation constant Terms that include the current phi
             @inbounds pertinent_rows = findall(Φ_index[:, i])
             @inbounds β_star = β_0 + v * sum(norm_temp[pertinent_rows, :]) / (1 + Φ_current)
-            #weights = cumsum(log.((0:n_agree) .+ α_0))  # Add initial 1 to account for zero case
             weights = lgamma.((0:n_agree) .+ α_0)
-            # weights = gamma.((0:n_agree) .+ α_0)
             weights += logpdf.(Binomial(n_agree, 0.5), 0:n_agree)
-            # weights += log.(binomial.(n_agree, 0:n_agree))
-            # weights .*= (binomial.(n_agree, 0:n_agree))
-            # ADDING BETA BELOW FIXES THIS SOMEHOW
-            weights -= (1:(n_agree + 1)) .* log(β_star)
-            ## DOING THIS ALL LIKE A CUMSUM
-            # weights ./= β_star .^ (0:n_agree)
-            # weights = log.(weights)
-            # if length(weights) != (n_agree + 1)
-            # println(exp.(weights .- maximum(weights)))
-            #    println((ones(1 +  n_agree) .* log(β_star)))
-            #end
-
-            α_star = α_0 + sample(0:n_agree, Weights(exp.(weights .- maximum(weights))))
+            weights -= (0:(n_agree)) .* log(β_star)
+            α_star = α_0 + sample(0:n_agree, Weights(exp.(weights)))
             @inbounds Φ[i] = rand(Gamma(α_star, 1 / β_star)) + eps(Float64)
-            # @inbounds Φ_log[i] = log(Φ[i] + 1)
             # Update the normalising constant values to account for this update
             @inbounds norm_temp[pertinent_rows, :] .*= (1 + Φ[i]) / (1 + Φ_current)
 
