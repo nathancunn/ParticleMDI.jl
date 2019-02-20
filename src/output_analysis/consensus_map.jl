@@ -32,7 +32,9 @@ A struct of class `Posterior_similarity_matrix` containing:
 function generate_psm(outputFile::String, burnin::Int64 = 0, thin::Int64 = 1)
     outputNames = split(readline(outputFile), ',')
     output = readdlm(outputFile, ',', header = false, skipstart = burnin + 1)
-    K = sum(occursin.(r"MassParameter", outputNames))
+    K = sum(map(outputNames) do str
+        occursin(r"MassParameter", str)
+    end)
 
     output = output[1:thin:end, (K + binomial(K, 2) + (K == 1) + 2):end]
 
@@ -124,7 +126,7 @@ function consensus_map(psm::Posterior_similarity_matrix, nclust::Int64, orderby:
     end
     hc = hclust(1 .- Symmetric(psm.psm[orderby], :L), linkage = :complete, uplo = :L)
     cuts = cutree(hc, k = nclust)[hc.order]
-    ticks = indexin(1:nclust, cuts) .+ 0.5
+    ticks = indexin(1:nclust, cuts) .- 0.5
     order = sortperm(hc.order)
     K = length(psm.psm)
     subplots = [spy(Symmetric(psm.psm[k], :L)[hc.order, hc.order],
@@ -141,9 +143,15 @@ function consensus_map(psm::Posterior_similarity_matrix, nclust::Int64, orderby:
                     Guide.yticks(ticks = ticks),
                     Scale.x_continuous(labels = i -> ""),
                     Scale.y_continuous(labels = i -> ""),
-                    Scale.color_continuous(colormap=Scale.lab_gradient("#2A186C", "#3B9287", "#FDEF9A"), maxvalue = 1.0))
+                    Scale.color_continuous(colormap=Scale.lab_gradient("#440154", "#2   1908C", "#FDE725"), maxvalue = 1.0))
                 for k in 1:K]
-    return hstack(subplots)
+    set_default_plot_size(14.8cm, 21.0cm)
+    return vstack(compose(context(0, 0, (K) / (K + 2), (K) / (K + 2)),
+                            render(subplots[end])),
+                  hstack([compose(context(0, 0, 1 / (K - 1), 1 / (K -1)),
+                  render(subplots[i])) for i in 1:(K - 1)]...))
+    # return vstack(subplots[end], hstack(subplots[1:5]))
+    # return hstack(subplots)
     """
     outplot = vstack([Compose.compose(context(0, 0, 1 / (K - 1), 1 / (K - 1)), render(subplots[k])) for k in 1:(K - 1)]...)
     outplot = hstack(Compose.compose(context(0, 0, 1.0h, 1), render(subplots[K])),
