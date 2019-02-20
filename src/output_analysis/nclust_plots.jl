@@ -11,16 +11,16 @@ every second iteration
 ## Output
 Outputs a line plot of phi values resulting from pmdi output
 """
-function plot_nclust(outputFile::String, burnin::Int64 = 0, thin::Int64 = 1)
+function plot_nclust_hist(outputFile::String, burnin::Int64 = 0, thin::Int64 = 1)
     outputNames = split(readline(outputFile), ',')
-    K = sum(ismatch.(r"MassParameter", outputNames))
-    output = readcsv(outputFile, header = false, skipstart = burnin + 1)
+    K = sum(map(x -> occursin(r"MassParameter", x), outputNames))
+    output = readdlm(outputFile, ',', header = false, skipstart = burnin + 1)
     hyperCols = Int64(K * (K - 1) / 2 + K + 1 + (K == 1))
     output = output[1:thin:end, (hyperCols + 1):end]
     n_obs = Int64((size(output, 2)) / K)
     dataNames = unique(map(x -> split(x, "_")[1], outputNames[(hyperCols + 1):end]))
 
-    out = Matrix(size(output, 1) * K, 3)
+    out = Matrix(undef, size(output, 1) * K, 3)
 
     endCol = 0
     for k in 1:K
@@ -36,9 +36,10 @@ function plot_nclust(outputFile::String, burnin::Int64 = 0, thin::Int64 = 1)
     plotdf = DataFrame(out)
     names!(plotdf, [:Dataset, :Iteration, :nclust])
 
-    plot(plotdf, x = :Iteration, y = :nclust, color = :Dataset,
-    Geom.line,
-    Guide.xlabel("Iteration"),
-    Guide.ylabel("Number of clusters"),
-    Coord.Cartesian(xmax = maximum(plotdf[:Iteration])))
+    plot(plotdf, x = :nclust,
+    color = :Dataset,
+    alpha = 0.3,
+    Geom.histogram,
+    Guide.ylabel("Frequency"),
+    Guide.xlabel("Number of clusters"))
 end

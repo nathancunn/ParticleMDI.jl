@@ -14,10 +14,13 @@ every second iteration
 ## Output
 Outputs a heatmap of pairwise dataset Φ values
 """
-function plot_phimatrix(outputFile::String, burnin::Int64, thin::Int64)
+function plot_phi_matrix(outputFile::String, burnin::Int64, thin::Int64)
     outputNames = split(readline(outputFile), ',')
-    phiColumns = occursin.(r"phi_", outputNames)
-    output = readcsv(outputFile, header = false, skipstart = burnin + 1)
+    phiColumns = map(outputNames) do str
+        occursin(r"phi_", str)
+    end
+    # phiColumns = occursin.(r"phi_", outputNames)
+    output = readdlm(outputFile, ',', header = false, skipstart = burnin + 1)
 
     phiValues = DataFrame(output[1:thin:end, phiColumns])
     names!(phiValues, Symbol.(outputNames[phiColumns]))
@@ -59,10 +62,13 @@ every second iteration
 ## Output
 Outputs a line plot of phi values resulting from pmdi output
 """
-function plot_phichain(outputFile::String, burnin::Int64, thin::Int64)
+function plot_phi_chain(outputFile::String, burnin::Int64, thin::Int64)
     outputNames = split(readline(outputFile), ',')
-    phiColumns = ismatch.(r"phi_", outputNames)
-    output = readcsv(outputFile, header = false, skipstart = burnin + 1)
+    phiColumns = map(outputNames) do str
+        occursin(r"phi_", str)
+    end
+    # phiColumns = occursin.(r"phi_", outputNames)
+    output = readdlm(outputFile, ',', header = false, skipstart = burnin + 1)
 
     phiValues = DataFrame(output[1:thin:end, phiColumns])
     names!(phiValues, Symbol.(outputNames[phiColumns]))
