@@ -11,7 +11,7 @@ end
 function calc_logprob(obs::Array{Int64}, cl::CategoricalCluster)
   out = 0.0
   for nlev in cl.nlevels
-    out -= log(nlev + cl.n)
+    @fastmath out -= log(nlev + cl.n)
   end
 #  out = - sum(log.(cl.nlevels .+ cl.n))
   for q in 1:length(obs)

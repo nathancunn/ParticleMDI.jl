@@ -38,9 +38,8 @@ function calc_logprob(obs::Array, cl::GaussianCluster)
                           SpecialFunctions.lgamma(0.5 * cl.n + 1.0) -
                           SpecialFunctions.lgamma(0.5 * cl.n + 0.5))
     # Iterate over features
-    # Need to fix this :eyeroll:
       for q in 1:size(obs, 1)
-        @fastmath @inbounds out += 0.5 * (log(cl.λ[q]) - log(cl.n + 1.0)) -
+        @inbounds out += 0.5 * (log(cl.λ[q]) - log(cl.n + 1.0)) -
                         (0.5 * cl.n + 1.0) *
                         log(1.0 + (1.0 / (cl.n + 1.0)) *
                         ((obs[q] - cl.μ[q]) ^ 2.0) * cl.λ[q])
