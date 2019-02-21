@@ -3,6 +3,7 @@ using Compose
 using DataFrames
 using Gadfly
 using LinearAlgebra
+using Plots
 
 mutable struct Posterior_similarity_matrix
     psm::Vector
@@ -129,72 +130,46 @@ function consensus_map(psm::Posterior_similarity_matrix, nclust::Int64, orderby:
     ticks = indexin(1:nclust, cuts) .- 0.5
     order = sortperm(hc.order)
     K = length(psm.psm)
-    subplots = [spy(Symmetric(psm.psm[k], :L)[hc.order, hc.order],
-                    Coord.cartesian(raster = true,
-                    aspect_ratio = 1.0,
-                    xmin = 0.5, ymin = 0.5,
-                    xmax = size(psm.psm[1], 1) + 0.5,
-                    ymax = size(psm.psm[1], 1) + 0.5,
-                    yflip = true),
-                    Theme(key_position = :none),
-                    Guide.xlabel(psm.names[k]),
-                    Guide.ylabel(""),
-                    Guide.xticks(ticks = ticks),
-                    Guide.yticks(ticks = ticks),
-                    Scale.x_continuous(labels = i -> ""),
-                    Scale.y_continuous(labels = i -> ""),
-                    Scale.color_continuous(colormap=Scale.lab_gradient("#440154", "#2   1908C", "#FDE725"), maxvalue = 1.0))
-                for k in 1:K]
-    set_default_plot_size(14.8cm, 21.0cm)
-    return vstack(compose(context(0, 0, (K) / (K + 2), (K) / (K + 2)),
-                            render(subplots[end])),
-                  hstack([compose(context(0, 0, 1 / (K - 1), 1 / (K -1)),
-                  render(subplots[i])) for i in 1:(K - 1)]...))
-    # return vstack(subplots[end], hstack(subplots[1:5]))
-    # return hstack(subplots)
-    """
-    outplot = vstack([Compose.compose(context(0, 0, 1 / (K - 1), 1 / (K - 1)), render(subplots[k])) for k in 1:(K - 1)]...)
-    outplot = hstack(Compose.compose(context(0, 0, 1.0h, 1), render(subplots[K])),
-                    outplot)
-    draw(SVG("test.svg", (width)inch, (width)inch), outplot)
+    # subplots = [spy(Symmetric(psm.psm[k], :L)[hc.order, hc.order],
+    #                 Coord.cartesian(raster = true,
+    #                 aspect_ratio = 1.0,
+    #                 xmin = 0.5, ymin = 0.5,
+    #                 xmax = size(psm.psm[1], 1) + 0.5,
+    #                 ymax = size(psm.psm[1], 1) + 0.5,
+    #                 yflip = true),
+    #                 Theme(key_position = :none),
+    #                 Guide.xlabel(psm.names[k]),
+    #                 Guide.ylabel(""),
+    #                 Guide.xticks(ticks = ticks),
+    #                 Guide.yticks(ticks = ticks),
+    #                 Scale.x_continuous(labels = i -> ""),
+    #                 Scale.y_continuous(labels = i -> ""),
+    #                 Scale.color_continuous(colormap=Scale.lab_gradient("#440154", "#2   1908C", "#FDE725"), maxvalue = 1.0))
+    #             for k in 1:K]
+    # # set_default_plot_size(14.8cm, 21.0cm)
 
+    # return vstack(compose(context(0, 0, (K) / (K + 2), (K) / (K + 2)),
+    plots = [Plots.heatmap(Symmetric(psm.psm[k], :L)[hc.order, hc.order],
+                        ticks = false,
+                        yflip = true,
+                        title = psm.names[k],
+                        legend = false,
+                        aspect_ratio = 1,
+                        c = :viridis,
+                        titlefont = Plots.font(family = "serif", pointsize = 12)) for k in [K; 1:(K - 1)]]
+    l = @layout [a{0.8w} grid((K - 1), 1)]
+    sort!(ticks)
+    append!(ticks, size(psm.psm[1], 1))
+    Plots.plot(plots..., layout = l,
+               left_margin= -5px,
+               right_margin = -5px,
+               bottom_margin = -5px,
+               top_margin = -5px,
+               title_location = :left)
+    # Plots.plot!([30], [50, 100], c = "#FFFFFF", linestyle = :dash)
+    vline!(ticks, c = "#FFFFFF", linestyle = :dash)
+    hline!(ticks, c = "#FFFFFF", linestyle = :dash)
+    # plot!(ticks, ticks, seriestype = :steppre, legend = false)
+    # plot!(Plots.Shape(xticks, yticks))
 
-    plot_df = DataFrame([String, Int64, Int64, Float64],
-                        [:Dataset, :x, :y, :ps],
-                        size(psm.psm, 1) * size(psm.psm[1], 1) ^ 2)
-
-    n = 1
-    for k in 1:size(psm.names, 1)
-        for j in 1:(size(psm.psm[1], 1))
-            for i in j:size(psm.psm[1], 1)
-                if i == j
-                    plot_df[:Dataset][n] = psm.names[k]
-                    plot_df[:x][n] = order[i]
-                    plot_df[:y][n] = order[j]
-                    plot_df[:ps][n] = psm.psm[k][i, j]
-                    n += 1
-                else
-                    plot_df[:Dataset][n:(n+1)] = psm.names[k]
-                    plot_df[:x][n] = plot_df[:y][n + 1] = order[i]
-                    plot_df[:y][n] = plot_df[:x][n + 1] = order[j]
-                    plot_df[:ps][n] = plot_df[:ps][n + 1] = psm.psm[k][i, j]
-                    n += 2
-                end
-            end
-        end
-    end
-    plot(plot_df, x = :x, y = :y, color = :ps, xgroup = :Dataset,
-    Geom.subplot_grid(Coord.cartesian(raster = true,
-                                      aspect_ratio = 1.0,
-                                      xmin = 0.5, ymin = 0.5,
-                                      xmax = maximum(plot_df[:x]) + 0.5,
-                                      ymax = maximum(plot_df[:y]) + 0.5,
-                                      yflip = true),
-                       Geom.rectbin,
-                       Guide.xticks(ticks = ticks),
-                       Guide.yticks(ticks = ticks),
-                       Guide.xlabel(""),
-                       Scale.x_continuous,
-                       Scale.y_continuous))
-       """
 end

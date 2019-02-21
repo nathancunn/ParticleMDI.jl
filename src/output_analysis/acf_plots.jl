@@ -1,4 +1,4 @@
-using Gadfly
+using Plots
 
 function nchanges(c1, c2)
   out = Int64(0)

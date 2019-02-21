@@ -1,8 +1,8 @@
 module particleMDI
 import Clustering.hclust
 import Distributions
-import Gadfly
 import NonUniformRandomVariateGeneration
+import Plots
 import StatsBase
 
 
@@ -19,10 +19,15 @@ include("datatypes/binom_cluster.jl")
 # Output analysis
 include("output_analysis/acf_plots.jl")
 include("output_analysis/phi_plots.jl")
+include("output_analysis/nclust_plots.jl")
 include("output_analysis/consensus_map.jl")
 
 
 
-export pmdi, clustrand, clustacf, gaussian_normalise!, plot_phichain, plot_phimatrix, generate_psm, consensus_map
+export pmdi,
+        gaussian_normalise!,
+        plot_phi_chain, plot_phi_matrix,
+        plot_nclust_chain, plot_nclust_hist,
+         generate_psm, consensus_map
 
 end # module

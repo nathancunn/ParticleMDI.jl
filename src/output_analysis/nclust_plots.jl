@@ -1,3 +1,5 @@
+using Plots
+
 """
 `plot_phichain(outputfile::String, burnin::Int64, thin::Int64)`
 
@@ -11,35 +13,48 @@ every second iteration
 ## Output
 Outputs a line plot of phi values resulting from pmdi output
 """
-function plot_nclust_hist(outputFile::String, burnin::Int64 = 0, thin::Int64 = 1)
+
+function get_nclust(outputFile::String, burnin::Int64 = 0, thin::Int64 = 1)
     outputNames = split(readline(outputFile), ',')
     K = sum(map(x -> occursin(r"MassParameter", x), outputNames))
     output = readdlm(outputFile, ',', header = false, skipstart = burnin + 1)
     hyperCols = Int64(K * (K - 1) / 2 + K + 1 + (K == 1))
-    output = output[1:thin:end, (hyperCols + 1):end]
+    output = Matrix{Int64}(output[1:thin:end, (hyperCols + 1):end])
     n_obs = Int64((size(output, 2)) / K)
     dataNames = unique(map(x -> split(x, "_")[1], outputNames[(hyperCols + 1):end]))
 
-    out = Matrix(undef, size(output, 1) * K, 3)
+    plot_matrix = Matrix{Int64}(undef, size(output, 1), K)
 
-    endCol = 0
     for k in 1:K
-        startCol = endCol + 1
-        endCol = startCol + n_obs - 1
+        start_col = (1:n_obs:size(output, 2))[k]
+        end_col = (n_obs:n_obs:size(output, 2))[k]
         for i in 1:size(output, 1)
-            out[i + size(output, 1) * (k - 1), 1] = dataNames[k]
-            out[i + size(output, 1) * (k - 1), 2] = i
-            out[i + size(output, 1) * (k - 1), 3] = length(unique(output[i, startCol:endCol]))
+            plot_matrix[i, k] = length(unique(output[i, start_col:end_col]))
         end
     end
+    return plot_matrix, dataNames
+end
 
-    plotdf = DataFrame(out)
-    names!(plotdf, [:Dataset, :Iteration, :nclust])
 
-    plot(plotdf, x = :nclust,
-    color = :Dataset,
-    alpha = 0.3,
-    Geom.histogram,
-    Guide.ylabel("Frequency"),
-    Guide.xlabel("Number of clusters"))
+function plot_nclust_hist(outputFile::String, burnin::Int64 = 0, thin::Int64 = 1)
+    plot_matrix, dataNames = get_nclust(outputFile, burnin, thin)
+    clust_range = (minimum(plot_matrix), maximum(plot_matrix))
+    Plots.histogram(plot_matrix,
+                    bins = clust_range[1]:clust_range[2],
+                    layout = K,
+                    color = [i for j = 1:1, i = 1:K],
+                    legend = false,
+                    title = [dataNames[i] for j = 1:1, i = 1:K],
+                    titlefont = Plots.font(family = "serif", pointsize = 12))
+end
+
+function plot_nclust_chain(outputFile::String, burnin::Int64 = 0, thin::Int64 = 1)
+    plot_matrix, dataNames = get_nclust(outputFile, burnin, thin)
+    clust_range = (minimum(plot_matrix), maximum(plot_matrix))
+    Plots.plot(plot_matrix,
+                    legend = false,
+                    layout = K,
+                    color = [i for j = 1:1, i = 1:K],
+                    title = [dataNames[i] for j = 1:1, i = 1:K],
+                    titlefont = Plots.font(family = "serif", pointsize = 12))
 end
