@@ -26,7 +26,7 @@ end
 @test isapprox(test_cluster.μ[1], test_cluster.Σ[1] / (1001))
 xbar = test_cluster.Σ[1] / 1001
 s2 = sum((test_data .- xbar) .^ 2)
-beta = 1 + 0.5 * (s2 + ((1. + size(test_data, 1)) ^ - 1) * (1 * size(test_data, 1)) * (- xbar) ^ 2)
+beta = 0.5 + 0.5 * (s2 + ((1. + size(test_data, 1)) ^ - 1) * (1 * size(test_data, 1)) * xbar ^ 2)
 @test isapprox(test_cluster.β[1], beta)
 @test isapprox(test_cluster.λ[1], (500.5 * 1001) / (test_cluster.β[1] * 1002))
 

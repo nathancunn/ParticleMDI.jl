@@ -34,7 +34,7 @@ function calc_logprob(obs::Array, cl::GaussianCluster)
     return out
   """
 
-    out = length(obs) * (- 0.5723649429247001 + # log(1 / sqrt(pi))
+    out = length(obs) * (log(1 / sqrt(pi)) +
                           SpecialFunctions.lgamma(0.5 * cl.n + 1.0) -
                           SpecialFunctions.lgamma(0.5 * cl.n + 0.5))
     # Iterate over features
@@ -56,10 +56,10 @@ function cluster_add!(cl::GaussianCluster, obs::Array)
                     (cl.n / (2.0 * (cl.n + 1.0))) * cl.μ[q] ^ 2
     """
   end
-  @inbounds cl.n     += 1
+  cl.n     += 1
   @inbounds for q = 1:length(obs)
     cl.Σ[q]  += obs[q]
-    cl.β[q] += cl.n * (obs[q] - cl.μ[q]) ^ 2 / (2 * (cl.n + 1))
+    cl.β[q] += (cl.n) * (obs[q] - cl.μ[q]) ^ 2 / (2 * (cl.n + 1))
     cl.μ[q]  = cl.Σ[q] / (cl.n + 1.0)
     """
     cl.β[q]  += 0.5 * ((obs[q] ^ 2) -
