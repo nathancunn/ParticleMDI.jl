@@ -1,7 +1,5 @@
 using Clustering
 using Compose
-using DataFrames
-using Gadfly
 using LinearAlgebra
 using Plots
 
