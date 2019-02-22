@@ -26,7 +26,7 @@ end
 
 
 function plot_phi_matrix(outputFile::String, burnin::Int64 = 0, thin::Int64 = 1)
-    phi_values = get_phi(outputFile, burnin, thin)
+    phi_values = particleMDI.get_phi(outputFile, burnin, thin)
     K = Int64(0.5 + sqrt(8 * size(phi_values, 2) + 1) * 0.5)
     @assert K > 1 "Φ not inferred for no. of datasets = 1"
     phi_matrix = Matrix{Float64}(undef, K, K)
@@ -35,7 +35,7 @@ function plot_phi_matrix(outputFile::String, burnin::Int64 = 0, thin::Int64 = 1)
     i = 1
     for k1 = 1:(K - 1)
         for k2 = (k1 + 1):K
-            phi_matrix[k1, k2] = phi_matrix[k2, k1] = Statistics.mean(output[:, K + i])
+            phi_matrix[k1, k2] = phi_matrix[k2, k1] = Statistics.mean(phi_values[:, i])
             i += 1
         end
     end

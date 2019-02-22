@@ -128,7 +128,6 @@ function consensus_map(psm::Posterior_similarity_matrix, nclust::Int64, orderby:
     ticks = indexin(1:nclust, cuts) .- 0.5
     sort!(ticks)
     append!(ticks, size(psm.psm[1], 1) + 0.5)
-    println(ticks)
     # Surely a better way of doing this
     ticks1 = [[ticks[i], ticks[i+1], NaN][j] for i = 1:nclust for j = 1:3]
     ticks2 = [[ticks[i], ticks[i], NaN][j] for i = 1:nclust for j = 1:3]
