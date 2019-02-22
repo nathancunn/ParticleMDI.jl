@@ -32,12 +32,13 @@ function get_nclust(outputFile::String, burnin::Int64 = 0, thin::Int64 = 1)
             plot_matrix[i, k] = length(unique(output[i, start_col:end_col]))
         end
     end
-    return plot_matrix, dataNames
+    return plot_matrix, dataNames, K
 end
 
 
 function plot_nclust_hist(outputFile::String, burnin::Int64 = 0, thin::Int64 = 1)
-    plot_matrix, dataNames = get_nclust(outputFile, burnin, thin)
+    plot_matrix, dataNames, K = particleMDI.get_nclust(outputFile, burnin, thin)
+
     clust_range = (minimum(plot_matrix), maximum(plot_matrix))
     Plots.histogram(plot_matrix,
                     bins = clust_range[1]:clust_range[2],
@@ -49,7 +50,7 @@ function plot_nclust_hist(outputFile::String, burnin::Int64 = 0, thin::Int64 = 1
 end
 
 function plot_nclust_chain(outputFile::String, burnin::Int64 = 0, thin::Int64 = 1)
-    plot_matrix, dataNames = get_nclust(outputFile, burnin, thin)
+    plot_matrix, dataNames, K = get_nclust(outputFile, burnin, thin)
     clust_range = (minimum(plot_matrix), maximum(plot_matrix))
     Plots.plot(plot_matrix,
                     legend = false,

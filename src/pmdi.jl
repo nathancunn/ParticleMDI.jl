@@ -39,6 +39,9 @@ function pmdi(dataFiles, dataTypes, N::Int64, particles::Int64,
 
     @assert length(dataTypes) == K "No. datatypes not equal to number of datasets"
     @assert all(x->x==n_obs, [size(dataFiles[k])[1] for k = 1:K]) "Datasets don't have same no. of observations"
+    @assert (ρ < 1) && (ρ > 0) "ρ must be between 0 and 1"
+    @assert N <= n_obs "Number of clusters must be fewer than number of observations"
+    @assert particles > 1 "Conditional particle filter requires 2 or more particles"
 
 
     # Initialise the hyperparameters

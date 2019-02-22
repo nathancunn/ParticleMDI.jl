@@ -126,27 +126,15 @@ function consensus_map(psm::Posterior_similarity_matrix, nclust::Int64, orderby:
     hc = hclust(1 .- Symmetric(psm.psm[orderby], :L), linkage = :complete, uplo = :L)
     cuts = cutree(hc, k = nclust)[hc.order]
     ticks = indexin(1:nclust, cuts) .- 0.5
+    sort!(ticks)
+    append!(ticks, size(psm.psm[1], 1) + 0.5)
+    println(ticks)
+    # Surely a better way of doing this
+    ticks1 = [[ticks[i], ticks[i+1], NaN][j] for i = 1:nclust for j = 1:3]
+    ticks2 = [[ticks[i], ticks[i], NaN][j] for i = 1:nclust for j = 1:3]
+    ticks3 = [[ticks[i], ticks[i], NaN][j] for i = 2:(nclust + 1) for j = 1:3]
     order = sortperm(hc.order)
     K = length(psm.psm)
-    # subplots = [spy(Symmetric(psm.psm[k], :L)[hc.order, hc.order],
-    #                 Coord.cartesian(raster = true,
-    #                 aspect_ratio = 1.0,
-    #                 xmin = 0.5, ymin = 0.5,
-    #                 xmax = size(psm.psm[1], 1) + 0.5,
-    #                 ymax = size(psm.psm[1], 1) + 0.5,
-    #                 yflip = true),
-    #                 Theme(key_position = :none),
-    #                 Guide.xlabel(psm.names[k]),
-    #                 Guide.ylabel(""),
-    #                 Guide.xticks(ticks = ticks),
-    #                 Guide.yticks(ticks = ticks),
-    #                 Scale.x_continuous(labels = i -> ""),
-    #                 Scale.y_continuous(labels = i -> ""),
-    #                 Scale.color_continuous(colormap=Scale.lab_gradient("#440154", "#2   1908C", "#FDE725"), maxvalue = 1.0))
-    #             for k in 1:K]
-    # # set_default_plot_size(14.8cm, 21.0cm)
-
-    # return vstack(compose(context(0, 0, (K) / (K + 2), (K) / (K + 2)),
     plots = [Plots.heatmap(Symmetric(psm.psm[k], :L)[hc.order, hc.order],
                         ticks = false,
                         yflip = true,
@@ -156,18 +144,16 @@ function consensus_map(psm::Posterior_similarity_matrix, nclust::Int64, orderby:
                         c = :viridis,
                         titlefont = Plots.font(family = "serif", pointsize = 12)) for k in [K; 1:(K - 1)]]
     l = @layout [a{0.8w} grid((K - 1), 1)]
-    sort!(ticks)
-    append!(ticks, size(psm.psm[1], 1))
     Plots.plot(plots..., layout = l,
                left_margin= -5px,
                right_margin = -5px,
                bottom_margin = -5px,
                top_margin = -5px,
                title_location = :left)
-    # Plots.plot!([30], [50, 100], c = "#FFFFFF", linestyle = :dash)
-    vline!(ticks, c = "#FFFFFF", linestyle = :dash)
-    hline!(ticks, c = "#FFFFFF", linestyle = :dash)
-    # plot!(ticks, ticks, seriestype = :steppre, legend = false)
-    # plot!(Plots.Shape(xticks, yticks))
+    plot!(ticks1, ticks2, seriestype = :path, c = "#FFFFFF", linestyle = :dash)
+    plot!(ticks1, ticks3, seriestype = :path, c = "#FFFFFF", linestyle = :dash)
+    plot!(ticks2, ticks1, seriestype = :path, c = "#FFFFFF", linestyle = :dash)
+    plot!(ticks3, ticks1, seriestype = :path, c = "#FFFFFF", linestyle = :dash,
+    widen = false)
 
 end
