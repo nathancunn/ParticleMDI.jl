@@ -105,7 +105,8 @@ end
 Generates a consensus map plot for a given posterior similarity matrix
 ## Input
 - `psm` a posterior similarity matrix struct as output from `generate_psm`
-- `nclust` the number of clusters to highlight in the data
+- `k` optional - the number of clusters to highlight in the data
+- `h` optional - the distance at which to cut the dendrogram. One of `k` or `h` must be specified.
 - `orderby` observations in all plots are ordered in a way to separate clusters as well
 as possible. `orderby` specifies which dataset should be used to inform this ordering.
 `orderby = 0` will let the overall consensus dictate the ordering.
@@ -119,12 +120,21 @@ as follows:**
 draw(SVG("path/to/file.svg"), consensus_map(psm, nclust, orderby))`
 **This should be fixed pending a bug fix in the Gadfly packge**
 """
-function consensus_map(psm::Posterior_similarity_matrix, nclust::Int64, orderby::Int64 = 0)
+function consensus_map(psm::Posterior_similarity_matrix;
+                       k::Union{Int64, Nothing} = nothing,
+                       h::Union{Float64, Nothing} = nothing,
+                       orderby::Int64 = 0)
+    @assert (k != nothing) | (h != nothing) "You must specify either k (number of clusters) or h (distance to cut dendrogram)"
     if orderby == 0
         orderby = size(psm.psm, 1)
     end
-    hc = hclust(1 .- Symmetric(psm.psm[orderby], :L), linkage = :complete, uplo = :L)
-    cuts = cutree(hc, k = nclust)[hc.order]
+    hc = hclust(1 .- Symmetric(psm.psm[orderby], :L), linkage = :complete)
+    if h == nothing
+        cuts = cutree(hc, k = k)[hc.order]
+    elseif k == nothing
+        cuts = cutree(hc, h = h)[hc.order]
+    end
+    nclust = length(unique(cuts))
     ticks = indexin(1:nclust, cuts) .- 0.5
     sort!(ticks)
     append!(ticks, size(psm.psm[1], 1) + 0.5)
@@ -136,7 +146,7 @@ function consensus_map(psm::Posterior_similarity_matrix, nclust::Int64, orderby:
     K = length(psm.psm)
     plots = [Plots.heatmap(Symmetric(psm.psm[k], :L)[hc.order, hc.order],
                         ticks = false,
-                        yflip = true,
+                        yflip = false,
                         title = psm.names[k],
                         legend = false,
                         aspect_ratio = 1,

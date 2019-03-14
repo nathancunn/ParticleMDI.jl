@@ -45,6 +45,7 @@ function plot_phi_matrix(outputFile::String, burnin::Int64 = 0, thin::Int64 = 1)
                   phi_matrix,
                   yflip = true,
                   c = :viridis,
+                  clim = (0, maximum(phi_matrix)),
                   aspect_ratio = 1)
     # spy(phiMatrix,
     # Guide.xticks(ticks = [1:K;]),

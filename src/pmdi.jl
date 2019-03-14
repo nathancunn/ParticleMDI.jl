@@ -40,31 +40,31 @@ function pmdi(dataFiles, dataTypes, N::Int64, particles::Int64,
     @assert length(dataTypes) == K "No. datatypes not equal to number of datasets"
     @assert all(x->x==n_obs, [size(dataFiles[k])[1] for k = 1:K]) "Datasets don't have same no. of observations"
     @assert (ρ < 1) && (ρ > 0) "ρ must be between 0 and 1"
-    @assert N <= n_obs "Number of clusters must be fewer than number of observations"
+    @assert (N <= n_obs) & (N > 1) "Number of clusters must be fewer than number of observations and greater than 1"
     @assert particles > 1 "Conditional particle filter requires 2 or more particles"
 
 
     # Initialise the hyperparameters
     M = ones(Float64, K) .* 2 # Mass parameter
-    γc = rand(Gamma(2.0 / N, 1), N, K) .+ eps(Float64) # Component weights
-    Φ = K > 1 ? rand(Gamma(1, 5), Int64(K * (K - 1) * 0.5)) : zeros(1) # Dataset concordance measure
+    γc = rand(Gamma(1.0 / N, 1), N, K) .+ eps(Float64) # Component weights
+    Φ = K > 1 ? rand(Gamma(1, 0.2), Int64(K * (K - 1) * 0.5)) : zeros(1) # Dataset concordance measure
 
-    # Initialise the allocations randomly according to γc
+    # Initialise allocations randomly according to γc
     s = Matrix{Int64}(undef, n_obs, K)
     for k = 1:K
         s[:, k] = sampleCategorical(n_obs, γc[:, k])
     end
 
-    # Get a matrix of all combinations of gammas
-    γc_combn = Matrix{Int64}(undef, N ^ K, K)
-    for (i, p) in enumerate(Iterators.product([1:N for k = 1:K]...))
-        γc_combn[i, :] = collect(p)
+    # Get a matrix of all combinations of allocations
+    c_combn = Matrix{Int64}(undef, N ^ K, K)
+    for k in 1:K
+        c_combn[:, K - k + 1] = div.(0:(N ^ K - 1), N ^ (K - k)) .% N .+ 1
     end
 
     # The actual corresponding gammas
     Γc = Matrix{Float64}(undef, N ^ K, K)
     for k = 1:K
-        Γc[:, k] = log.(γc[:, k][γc_combn[:, k]])
+        Γc[:, k] = log.(γc[:, k][c_combn[:, k]])
     end
 
     # Which Φ value is activated by each of the above combinations
@@ -73,7 +73,7 @@ function pmdi(dataFiles, dataTypes, N::Int64, particles::Int64,
         i = 1
         for k1 in 1:(K - 1)
             for k2 in (k1 + 1):K
-                Φ_index[:, i] = (γc_combn[:, k1] .== γc_combn[:, k2])
+                Φ_index[:, i] = (c_combn[:, k1] .== c_combn[:, k2])
                 i += 1
             end
         end
@@ -122,22 +122,24 @@ function pmdi(dataFiles, dataTypes, N::Int64, particles::Int64,
     n1 = floor(Int, ρ * n_obs)
     # it = 1
 
-    for it in 1:iter
+    @inbounds for it in 1:iter
     # while ((time_ns() - ll1) / 1.0e9) < 60
         # it += 1
         shuffle!(order_obs)
 
         # Update hyperparameters
         update_Φ!(Φ, v, s, Φ_index, γc, K, Γc)
-        update_γ!(γc, Φ, v, M, s, Φ_index, γc_combn, Γc, N, K)
+        update_γ!(γc, Φ, v, M, s, Φ_index, c_combn, Γc, N, K)
         Π = γc ./ sum(γc, dims = 1)
         Z = update_Z(Φ, Φ_index, Γc)
         v = update_v(n_obs, Z)
         update_M!(M, γc, K, N)
 
+        log_γ = log.(γc)
+
         for k = 1:K
             for i = 1:(N ^ K)
-                Γc[i, k] = log(γc[γc_combn[i, k], k])
+                Γc[i, k] = log_γ[c_combn[i, k], k]
             end
         end
 

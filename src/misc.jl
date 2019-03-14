@@ -1,5 +1,5 @@
-function calculate_Φ_lab(K::Int64)
-    Φ_lab = K > 1 ? Matrix{Int64}(undef, Int64(K * (K - 1) / 2), 2) : fill(1, (1, 2))
+@inline function calculate_Φ_lab(K::Int64)
+    Φ_lab = K > 1 ? Matrix{Int64}(undef, binomial(K, 2), 2) : [1 1]
     if K > 1
         i = 1
         for k1 in 1:(K - 1)
@@ -21,7 +21,6 @@ end
         ESSnum += num
         ESSdenom += num ^ 2
     end
-    # return sum(exp.(logweight .- maximum(logweight))) .^ 2 / sum(exp.(logweight .- maximum(logweight)) .^ 2)
     return (ESSnum ^ 2) / ESSdenom
 end
 
@@ -53,7 +52,7 @@ function Φ_upweight!(logweight, sstar, K::Int64, Φ, particles)
         return
     else
         Φ_lab = calculate_Φ_lab(K)
-        for i in 1:Int64((K * (K - 1) * 0.5))
+        for i in 1:binomial(K, 2)
             Φ_log = log(1 + Φ[i])
             for p in 1:particles
                 logweight[p] += (sstar[p, Φ_lab[i, 1]] == sstar[p, Φ_lab[i, 2]]) * Φ_log
@@ -70,43 +69,69 @@ function align_labels!(s::Array, Φ::Array, γ::Array, N::Int64, K::Int64)
         Φ_lab = calculate_Φ_lab(K)
         Φ_log = log.(Φ .+ 1)
         unique_s = unique(s)
-        #if length(unique_s) > 1
-            for k = 1:K
-                unique_sk = unique(s[:, k])
-                if length(unique_sk) > 1
-                    relevant_Φs = Φ_log[(Φ_lab[:, 1] .== k) .| (Φ_lab[:, 2] .== k)]
-                    # for i in 1:(length(unique_sk))
-                    for label in unique_sk
-                        new_label = sample(setdiff(unique_s, label))
-                        # for new_label in setdiff(unique_s, label)
-                        # label_ind = findindices(s[:, k], label)
-                        label_ind = findall(s[:, k] .== label)
-                        # new_label_ind = findindices(s[:, k], new_label)
-                        new_label_ind = findall(s[:, k] .== new_label)
-                        label_rows      = s[label_ind, setdiff(1:K, k)]
-                        new_label_rows  = s[new_label_ind, setdiff(1:K, k)]
-                        log_phi_sum     = sum(sum(label_rows .== label, dims = 1) .* relevant_Φs + sum(new_label_rows .== new_label, dims = 1) .* relevant_Φs)
-                        log_phi_sum_swap = sum(sum(label_rows .== new_label, dims = 1) .* relevant_Φs + sum(new_label_rows .== label, dims = 1) .* relevant_Φs)
+        @inbounds for k = 1:K
+            unique_sk = unique(s[:, k])
+            if length(unique_sk) > 1
+                relevant_Φs = Φ_log[(Φ_lab[:, 1] .== k) .| (Φ_lab[:, 2] .== k)]
+                for label in unique_sk
+                    new_label = rand(unique_s)
+                    while new_label == label
+                        new_label = rand(unique_s)
+                    end
+                    label_ind = s[:, k] .== label
+                    new_label_ind = s[:, k] .== new_label
+                    label_rows      = s[label_ind, setdiff2(K, k)]
+                    new_label_rows  = s[new_label_ind, setdiff2(K, k)]
+                    log_phi_sum     = sum(count_equals(label_rows, label) .* relevant_Φs + count_equals(new_label_rows, new_label) .* relevant_Φs)
+                    log_phi_sum_swap = sum(count_equals(label_rows, new_label) .* relevant_Φs + count_equals(new_label_rows, label) .* relevant_Φs)
 
-                        accept = min(1, exp(log_phi_sum_swap - log_phi_sum))
+                    accept = exp(log_phi_sum_swap - log_phi_sum)
 
-                        if rand() < accept
-                            # display(s)
-                            s[label_ind, k]        .= new_label
-                            s[new_label_ind, k]    .= label
-                            # display(s)
-                            γ_temp = γ[new_label, k]
-                            γ[new_label, k] = γ[label, k]
-                            γ[label, k] = γ_temp
-                        end
+                    if rand() < accept
+                        s[label_ind, k]        .= new_label
+                        s[new_label_ind, k]    .= label
+                        γ[new_label, k], γ[label, k] = γ[label, k], γ[new_label, k]
                     end
                 end
             end
-        # end
+        end
     end
 end
 
-function findindex(A, b)
+@inline function count_equals(A::Array, b::Int64)
+    out = zeros(Float64, size(A, 2))
+    for i in 1:size(A, 1)
+        for j in 1:size(A, 2)
+            if A[i, j] == b
+                out[j] += 1.
+            end
+        end
+    end
+    return out
+end
+
+
+@inline function setdiff2(K::Int64, b::Int64)
+    # Specifically find diff between set 1:K and
+    # integer b
+    out = ones(Bool, K)
+    out[b] = 0
+    return out
+end
+
+@inline function find_logical(A::Vector, b::Int64)
+    # Return a bit-array indicating where A has value b
+    out = zeros(Bool, size(A, 1))
+    for i in eachindex(A)
+        if A[i] == b
+            out[i] = true
+        end
+    end
+    return out
+end
+
+
+@inline function findindex(A, b)
     # Find first occurrence of b in A
     for (i,a) in enumerate(A)
         if a == b
@@ -115,7 +140,7 @@ function findindex(A, b)
     end
 end
 
-function findindices(A, b)
+@inline function findindices(A, b)
     # Find all occurrences of b in A
     # Specifically for finding occurrences of gamma
     out = Int64[]
