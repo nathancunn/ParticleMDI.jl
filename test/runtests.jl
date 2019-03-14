@@ -5,8 +5,6 @@ else
     using Test
 end
 
-# write your own tests here
-@test 1 == 1
 
 ## Test data types
 # Gaussian
@@ -52,3 +50,57 @@ end
 
 @test isapprox(particleMDI.calc_logprob([1], test_cluster),
       log((sum(test_data .== 1) + 0.5) / (1005)))
+
+
+# Test normalising constant calculation
+for N = 2:20
+    for K = 1:5
+        c_combn = Matrix{Int64}(undef, N ^ K, K)
+        for k in 1:K
+            c_combn[:, K - k + 1] = div.(0:(N ^ K - 1), N ^ (K - k)) .% N .+ 1
+        end
+        γc = rand(Gamma(1.0 / N, 1), N, K)
+        Γ = Matrix{Float64}(undef, N ^ K, K)
+        for i in 1:(N ^ K)
+            for k in 1:K
+                Γ[i, k] = γc[c_combn[i], k]
+            end
+        end
+        if K > 1
+            Φ = rand(Gamma(1, 5), binomial(K, 2), 1)
+        else
+            Φ = zeros(1)
+        end
+        phi_index = zeros(Int64, K- 1, K)
+        num = 1
+        for i in 1:(K - 1)
+            for j in (i + 1):K
+                phi_index[i, j] = num
+                num += 1
+            end
+        end
+        Z = 0.0
+        for i in 1:(N ^K)
+            tmp = prod(Γ[i, :])
+            if K > 1
+                for k1 in 1:(K - 1)
+                    for k2 in (k1 + 1):K
+                        tmp *=  (1 + (Φ[phi_index[k1, k2]] * (c_combn[i, k1] == c_combn[i, k2])))
+                    end
+                end
+            end
+            Z += tmp
+        end
+        Φ_index = K > 1 ? Matrix{Bool}(undef, N ^ K, Int64(K * (K - 1) / 2)) : fill(1, (N, 1))
+        if K > 1
+            i = 1
+            for k1 in 1:(K - 1)
+                for k2 in (k1 + 1):K
+                    Φ_index[:, i] = (c_combn[:, k1] .== c_combn[:, k2])
+                    i += 1
+                end
+            end
+        end
+        @test isapprox(Z, particleMDI.update_Z(Φ, Φ_index, log.(Γ)))
+    end
+end
