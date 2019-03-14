@@ -6,7 +6,7 @@ This package provides an implementation of particleMDI, a particle Gibbs version
 
 ## Installation
 ```jl
-Pkg.clone("git://github.com/nathancunn/particleMDI.jl.git")
+] add "git://github.com/nathancunn/particleMDI.jl.git"
 ```
 
 ## Usage
