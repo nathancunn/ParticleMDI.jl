@@ -63,35 +63,34 @@ function Φ_upweight!(logweight, sstar, K::Int64, Φ, particles)
 end
 
 function align_labels!(s::Array, Φ::Array, γ::Array, N::Int64, K::Int64)
-    if K == 1
-        return
-    else
-        Φ_lab = calculate_Φ_lab(K)
-        Φ_log = log.(Φ .+ 1)
-        unique_s = unique(s)
-        @inbounds for k = 1:K
-            unique_sk = unique(s[:, k])
-            if length(unique_sk) > 1
-                relevant_Φs = Φ_log[(Φ_lab[:, 1] .== k) .| (Φ_lab[:, 2] .== k)]
-                for label in unique_sk
-                    new_label = rand(unique_s)
-                    while new_label == label
-                        new_label = rand(unique_s)
-                    end
-                    label_ind = s[:, k] .== label
-                    new_label_ind = s[:, k] .== new_label
-                    label_rows      = s[label_ind, setdiff2(K, k)]
-                    new_label_rows  = s[new_label_ind, setdiff2(K, k)]
-                    log_phi_sum     = sum(count_equals(label_rows, label) .* relevant_Φs + count_equals(new_label_rows, new_label) .* relevant_Φs)
-                    log_phi_sum_swap = sum(count_equals(label_rows, new_label) .* relevant_Φs + count_equals(new_label_rows, label) .* relevant_Φs)
-
-                    accept = exp(log_phi_sum_swap - log_phi_sum)
-
-                    if rand() < accept
-                        s[label_ind, k]        .= new_label
-                        s[new_label_ind, k]    .= label
-                        γ[new_label, k], γ[label, k] = γ[label, k], γ[new_label, k]
-                    end
+    K == 1 && return
+    Φ_lab = calculate_Φ_lab(K)
+    Φ_log = log.(Φ .+ 1)
+    # unique_s = unique(s)
+    # No need to permute labels for dataset 1
+    @inbounds for k = 1:K
+        relevant_Φs = Φ_log[(Φ_lab[:, 1] .== k) .| (Φ_lab[:, 2] .== k)]
+        for label in unique(s[:, k])
+            label_ind  = s[:, k] .== label
+            all(label_ind .== false) && continue
+            label_rows = s[label_ind, setdiff2(K, k)]
+            # Only consider most frequent label in each other dataset
+            # as this will always dominate others
+            # and saves time
+            for new_label in mapslices(mode, label_rows, dims = 1)
+                new_label == label && continue
+                new_label_ind   = s[:, k] .== new_label
+                new_label_rows  = s[new_label_ind, setdiff2(K, k)]
+                log_phi_sum     = sum(count_equals(label_rows, label) .* relevant_Φs + count_equals(new_label_rows, new_label) .* relevant_Φs)
+                log_phi_sum_swap = sum(count_equals(label_rows, new_label) .* relevant_Φs + count_equals(new_label_rows, label) .* relevant_Φs)
+                accept = exp(log_phi_sum_swap - log_phi_sum)
+                if rand() < accept
+                    s[label_ind, k]        .= new_label
+                    s[new_label_ind, k]    .= label
+                    γ[new_label, k], γ[label, k] = γ[label, k], γ[new_label, k]
+                    label = new_label
+                    label_ind  = s[:, k] .== label
+                    label_rows = s[label_ind, setdiff2(K, k)]
                 end
             end
         end
