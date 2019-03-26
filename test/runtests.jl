@@ -1,4 +1,6 @@
+using Distributions
 using particleMDI
+
 @static if VERSION < v"0.7.0-DEV.2005"
     using Base.Test
 else
@@ -8,7 +10,6 @@ end
 
 ## Test data types
 # Gaussian
-using Distributions
 test_data = rand(Normal(0, 10), 1000, 1)
 test_cluster = particleMDI.GaussianCluster(test_data)
 # Basic check it's been initialised
@@ -104,3 +105,29 @@ for N = 2:20
         @test isapprox(Z, particleMDI.update_Z(Φ, Φ_index, log.(Γ)))
     end
 end
+
+
+# Test cluster alignment
+# All datasets strongly agree
+K = 5
+N = 10
+s = rand(1:N, 10000, K)
+Φ = [10 for k in 1:binomial(K, 2)]
+γ = rand(Gamma(1.0 / N, 1), N, K)
+# Perfect agreement up to label permutation
+for k in 2:K
+    shuf = Distributions.shuffle(1:N)
+    s[:, k] .= shuf[s[:, 1]]
+    γ[:, k] = γ[indexin(1:N, shuf), 1]
+end
+# No guarantee that agreement occurs at first attempt
+# Run over and over and check that if all the cluster values align
+# So do all the gammas
+for i = 1:10
+    particleMDI.align_labels!(s, Φ, γ, N, K)
+    @test all(s[:, 2:K] .== s[:, 1]) == all(γ[:, 2:K] .== γ[:, 1])
+end
+particleMDI.align_labels!(s, Φ, γ, N, 0)
+
+@test all(s[:, 2:K] .== s[:, 1])
+@test all(γ[:, 2:K] .== γ[:, 1])
