@@ -19,8 +19,8 @@ specified with `particleMDI.gaussianCluster`
 - `ρ::Float64` proportion of allocations assumed known in each MCMC iteration
 - `iter::Int64` number of iterations to run
 - `outputFile::String` specification of a CSV file to store output
-- `initialise::Bool` if false, the algorithm begins at last output recorded in
-`outputFile` otherwise begin fresh.
+- `featureSelect::Bool` defaults to `false`, setting `true` means feature selection will be performed.
+
 ## Output
 Outputs a .csv file, each row containing:
 - Mass parameter for datasets `1:K`
@@ -66,6 +66,14 @@ And finally, a function needs to be specified explaining how to update a cluster
 function particleMDI.cluster_add!(cl::SignCluster, obs)
     cl.n += 1
     cl.isneg = (obs[1] < 0)
+end
+```
+
+Optionally a function which returns the log marginal likelihood of each feature in a cluster. This is used to perform feature selection by comparison between the inferred allocations and the situation where all observations within a feature are assigned to a single cluster. This need not be specified if `featureSelect = false`. The assumption of independence across features underlies this step and so should not be used if this assumption does not hold.
+
+```jl
+function particleMDI.calc_logmarginal!(cl::SignCluster)
+    # return a vector of log-marginal likelihoods
 end
 ```
 
