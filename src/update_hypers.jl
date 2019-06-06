@@ -4,7 +4,7 @@ end
 
 function update_M!(M::Array, γ::Array, K::Int64, N::Int64)
     # Update the mass parameter
-    prior = [2.0, 0.25]
+    prior = [2, 0.25]
     for k = 1:K
         @inbounds current_γ = γ[:, k]
         current_M = Float64(M[k])

@@ -25,9 +25,9 @@ include("output_analysis/consensus_map.jl")
 
 
 export pmdi,
-        gaussian_normalise!,
+        gaussian_normalise!, coerce_categorical,
         plot_phi_chain, plot_phi_matrix,
         plot_nclust_chain, plot_nclust_hist,
-         generate_psm, consensus_map
+        generate_psm, consensus_map
 
 end # module

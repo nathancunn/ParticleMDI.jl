@@ -144,15 +144,31 @@ function consensus_map(psm::Posterior_similarity_matrix;
     ticks3 = [[ticks[i], ticks[i], NaN][j] for i = 2:(nclust + 1) for j = 1:3]
     order = sortperm(hc.order)
     K = length(psm.psm)
-    plots = [Plots.heatmap(Symmetric(psm.psm[k], :L)[hc.order, hc.order],
+    if K > 1
+        plots = [Plots.heatmap(Symmetric(psm.psm[k], :L)[hc.order, hc.order],
                         ticks = false,
                         yflip = false,
                         title = psm.names[k],
                         legend = false,
                         aspect_ratio = 1,
                         c = :viridis,
-                        titlefont = Plots.font(family = "serif", pointsize = 12)) for k in [K; 1:(K - 1)]]
-    l = @layout [a{0.8w} grid((K - 1), 1)]
+                        clim = (0, 1),
+                        titlefont = Plots.font(family = "serif", pointsize = 12)) for k in [K; 1:max(K - 1, 1)]]
+        l = @layout [a{0.8w} grid(max(K - 1, 1), 1)]
+    elseif K == 1
+        plots = [Plots.heatmap(Symmetric(psm.psm[1], :L)[hc.order, hc.order],
+                        ticks = false,
+                        yflip = false,
+                        title = psm.names[1],
+                        legend = false,
+                        aspect_ratio = 1,
+                        c = :viridis,
+                        titlefont = Plots.font(family = "serif", pointsize = 12))]
+        l = @layout [a;]
+    end
+
+
+
     Plots.plot(plots..., layout = l,
                left_margin= -5px,
                right_margin = -5px,

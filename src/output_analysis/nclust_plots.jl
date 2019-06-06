@@ -43,7 +43,7 @@ function plot_nclust_hist(outputFile::String, burnin::Int64 = 0, thin::Int64 = 1
     Plots.histogram(plot_matrix,
                     bins = clust_range[1]:clust_range[2],
                     layout = K,
-                    color = [i for j = 1:1, i = 1:K],
+                    color = [i for j = 1:1, i = 1:K],                    
                     legend = false,
                     title = [dataNames[i] for j = 1:1, i = 1:K],
                     titlefont = Plots.font(family = "serif", pointsize = 12))

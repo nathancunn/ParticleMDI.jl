@@ -77,6 +77,7 @@ function align_labels!(s::Array, Φ::Array, γ::Array, N::Int64, K::Int64)
             # Only consider most frequent label in each other dataset
             # as this will always dominate others
             # and saves time
+            # However, detailed balance?
             for new_label in mapslices(mode, label_rows, dims = 1)
                 new_label == label && continue
                 new_label_ind   = s[:, k] .== new_label
@@ -180,17 +181,19 @@ function countn(A, b)
 end
 
 function wipedout(v1, v2, x)
+    # Is the number of occurrences of x greater in
+    # v2 than v1?
     count1 = 0
-    for i in eachindex(v1)
-        if v1 == x
+    for i in eachindex(v2)
+        if v2[i] == x
             count1 += 1
         end
     end
-    for i in eachindex(v2)
-        if v2 == x
+    for i in eachindex(v1)
+        if v1[i] == x
             count1 -= 1
         end
-        if count1 <= 0
+        if count1 < 0
             return false
         end
     end
