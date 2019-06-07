@@ -237,29 +237,29 @@ function pmdi(dataFiles, dataTypes, N::Int64, particles::Int64,
 
         # Feature selection
         ## Create a null particle with every obs in one cluster
-        nullCluster = [dataTypes[k](dataFiles[k]) for k in 1:K]
-        for k = 1:K
-            featureFlag[k] .= true
-            for i = 1:n_obs
-                cluster_add!(nullCluster[k], dataFiles[k][i, :], featureFlag[k])
-            end
-            featureProb[k] = - calc_logmarginal(nullCluster[k])
-        end
-
-        ## Compare this to the marginal likelihood for each cluster
-        for k = 1:K
-            occupiedClusters = unique(sstar[p_star, :, k])
-            for clust in occupiedClusters
-                clust_members = findindices(sstar[p_star, :, k], clust)
-                clust_params = dataTypes[k](dataFiles[k])
-                for obs in clust_members
-                    cluster_add!(clust_params, dataFiles[k][obs, :], featureFlag[k])
+        if featureSelect
+            nullCluster = [dataTypes[k](dataFiles[k]) for k in 1:K]
+            for k = 1:K
+                featureFlag[k] .= true
+                for i = 1:n_obs
+                    cluster_add!(nullCluster[k], dataFiles[k][i, :], featureFlag[k])
                 end
-                featureProb[k] += calc_logmarginal(clust_params)
+                featureProb[k] = - calc_logmarginal(nullCluster[k])
             end
-            featureFlag[k] = (1 .- 1 ./ (exp.(featureProb[k] .+ 1))) .> rand(length(featureProb[k]))
-            featurePosterior[k] += featureFlag[k] ./ (iter + 1)
-
+            ## Compare this to the marginal likelihood for each cluster
+            for k = 1:K
+                occupiedClusters = unique(sstar[p_star, :, k])
+                for clust in occupiedClusters
+                    clust_members = findindices(sstar[p_star, :, k], clust)
+                    clust_params = dataTypes[k](dataFiles[k])
+                    for obs in clust_members
+                        cluster_add!(clust_params, dataFiles[k][obs, :], featureFlag[k])
+                    end
+                    featureProb[k] += calc_logmarginal(clust_params)
+                end
+                featureFlag[k] = (1 .- 1 ./ (exp.(featureProb[k] .+ 1))) .> rand(length(featureProb[k]))
+                featurePosterior[k] += featureFlag[k] ./ (iter + 1)
+            end
         end
 
         logweight .= 1.0
@@ -271,6 +271,5 @@ function pmdi(dataFiles, dataTypes, N::Int64, particles::Int64,
         writedlm(fileid, [M; Φ; ll; s[1:(n_obs * K)]]', ',')
     end
     close(fileid)
-    println(maximum(particle[1]))
     return featurePosterior
 end
