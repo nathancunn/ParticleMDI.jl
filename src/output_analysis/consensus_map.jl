@@ -2,6 +2,7 @@ using Clustering
 using Compose
 using LinearAlgebra
 using Plots
+using Plots.PlotMeasures
 
 mutable struct Posterior_similarity_matrix
     psm::Vector
@@ -98,9 +99,10 @@ function get_consensus_allocations(psm::Posterior_similarity_matrix, nclust::Int
 end
 
 
-
 """
-`consensus_map(psm::Posterior_similarity_matrix, nclust::Int64, orderby::Int64 = 0)`
+`consensus_map(psm::Posterior_similarity_matrix; k::Union{Int64, Nothing} = nothing,
+h::Union{Float64, Nothing} = nothing,
+orderby::Int64 = 0)`
 
 Generates a consensus map plot for a given posterior similarity matrix
 ## Input
@@ -113,12 +115,6 @@ as possible. `orderby` specifies which dataset should be used to inform this ord
 ## Output
 - K + 1 (or K if K == 1) consensus maps illustrating the clustering output in each
 of K datasets.
-
-**Note: the output of this needs to be saved to file to be viewed. This can be done
-as follows:**
-`using Gadfly
-draw(SVG("path/to/file.svg"), consensus_map(psm, nclust, orderby))`
-**This should be fixed pending a bug fix in the Gadfly packge**
 """
 function consensus_map(psm::Posterior_similarity_matrix;
                        k::Union{Int64, Nothing} = nothing,
@@ -128,7 +124,7 @@ function consensus_map(psm::Posterior_similarity_matrix;
     if orderby == 0
         orderby = size(psm.psm, 1)
     end
-    hc = hclust(1 .- Symmetric(psm.psm[orderby], :L), linkage = :complete)
+    hc = hclust(1 .- Symmetric(psm.psm[orderby], :L), linkage = :ward)
     if h == nothing
         cuts = cutree(hc, k = k)[hc.order]
     elseif k == nothing
