@@ -45,7 +45,7 @@ function calc_logprob(obs::Array, cl::GaussianCluster, featureFlag::Array)
 
       @inbounds for q in 1:size(obs, 1)
         if featureFlag[q]
-          @fastmath out += 0.5 * (log(cl.λ[q]) - log(cl.n + 1.0)) -
+        out += 0.5 * (log(cl.λ[q]) - log(cl.n + 1.0)) -
                           (0.5 * cl.n + 1.0) *
                           log(1.0 + (1.0 / (cl.n + 1.0)) *
                           ((obs[q] - cl.μ[q]) ^ 2.0) * cl.λ[q])
