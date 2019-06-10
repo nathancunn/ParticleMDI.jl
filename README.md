@@ -69,7 +69,7 @@ function particleMDI.cluster_add!(cl::SignCluster, obs)
 end
 ```
 
-Optionally a function which returns the log marginal likelihood of each feature in a cluster. This is used to perform feature selection by comparison between the inferred allocations and the situation where all observations within a feature are assigned to a single cluster. This need not be specified if `featureSelect = false`. The assumption of independence across features underlies this step and so should not be used if this assumption does not hold.
+Optionally a function which returns the log marginal likelihood of each feature in a cluster. This is used to perform feature selection by comparison between the inferred allocations and the situation where all observations within a feature are assigned to a single cluster. This need not be specified if `featureSelect = false`, however if you want to do feature selection for _any_ dataType you'll need to have this specified. In such a case, you can specify this to return a large number (**not** `Inf`) and features should always be selected. The assumption of independence across features underlies this step and so should not be used if this assumption does not hold.
 
 ```jl
 function particleMDI.calc_logmarginal!(cl::SignCluster)
