@@ -1,5 +1,4 @@
 using Clustering
-using Compose
 using LinearAlgebra
 using Plots
 using Plots.PlotMeasures
@@ -94,7 +93,7 @@ function get_consensus_allocations(psm::Posterior_similarity_matrix, nclust::Int
     if orderby == 0
         orderby = size(psm.psm, 1)
     end
-    hc = hclust(1 .- Symmetric(psm.psm[orderby], :L), linkage = :complete, uplo = :L)
+    hc = hclust(1 .- Symmetric(psm.psm[orderby], :L), linkage = :ward, uplo = :L)
     return cutree(hc, k = nclust)
 end
 
@@ -120,11 +119,12 @@ function consensus_map(psm::Posterior_similarity_matrix;
                        k::Union{Int64, Nothing} = nothing,
                        h::Union{Float64, Nothing} = nothing,
                        orderby::Int64 = 0)
-    @assert (k != nothing) | (h != nothing) "You must specify either k (number of clusters) or h (distance to cut dendrogram)"
-    if orderby == 0
-        orderby = size(psm.psm, 1)
+    @assert (k != nothing) | (h != nothing) "You must specify either k (number of clusters) or h (height to cut dendrogram)"
+    if (orderby == 0) | (orderby == - 1)
+        orderby_main = size(psm.psm, 1)
+    else orderby_main = orderby
     end
-    hc = hclust(1 .- Symmetric(psm.psm[orderby], :L), linkage = :ward)
+    hc = hclust(1 .- Symmetric(psm.psm[orderby_main], :L), linkage = :ward)
     if h == nothing
         cuts = cutree(hc, k = k)[hc.order]
     elseif k == nothing
@@ -138,10 +138,21 @@ function consensus_map(psm::Posterior_similarity_matrix;
     ticks1 = [[ticks[i], ticks[i+1], NaN][j] for i = 1:nclust for j = 1:3]
     ticks2 = [[ticks[i], ticks[i], NaN][j] for i = 1:nclust for j = 1:3]
     ticks3 = [[ticks[i], ticks[i], NaN][j] for i = 2:(nclust + 1) for j = 1:3]
-    order = sortperm(hc.order)
     K = length(psm.psm)
-    if K > 1
+    if (K > 1) & (orderby != - 1)
         plots = [Plots.heatmap(Symmetric(psm.psm[k], :L)[hc.order, hc.order],
+                        ticks = false,
+                        yflip = false,
+                        title = psm.names[k],
+                        legend = false,
+                        aspect_ratio = 1,
+                        c = :viridis,
+                        clim = (0, 1),
+                        titlefont = Plots.font(family = "serif", pointsize = 12)) for k in [K; 1:max(K - 1, 1)]]
+        l = @layout [a{0.8w} grid(max(K - 1, 1), 1)]
+    elseif (K > 1) & (orderby == - 1)
+        plot_order = [hclust(1 .- Symmetric(psm.psm[k], :L), linkage = :ward).order for k in 1:K]
+        plots = [Plots.heatmap(Symmetric(psm.psm[k], :L)[plot_order[k], plot_order[k]],
                         ticks = false,
                         yflip = false,
                         title = psm.names[k],

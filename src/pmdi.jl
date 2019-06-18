@@ -126,7 +126,11 @@ function pmdi(dataFiles, dataTypes, N::Int64, particles::Int64,
     n1 = floor(Int, ρ * n_obs)
 
     @inbounds for it in 1:iter
-        particle = [fill(1, (N, particles)) for k in 1:K]
+        for k in 1:K
+            for i in eachindex(particle[k])
+                particle[k][i] = 1
+            end
+        end
         shuffle!(order_obs)
 
         # Update hyperparameters

@@ -3,6 +3,7 @@ import Clustering.hclust
 import Distributions
 import NonUniformRandomVariateGeneration
 import Plots
+import Plots.PlotMeasures
 import StatsBase
 
 
@@ -15,6 +16,7 @@ include("update_hypers.jl")
 include("datatypes/gaussian_cluster.jl")
 include("datatypes/categorical_cluster.jl")
 include("datatypes/binom_cluster.jl")
+include("datatypes/negbinom_cluster.jl")
 
 # Output analysis
 include("output_analysis/acf_plots.jl")
