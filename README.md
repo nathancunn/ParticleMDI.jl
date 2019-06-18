@@ -1,6 +1,6 @@
-# particleMDI.jl
+# ParticleMDI.jl
 
-[![Build Status](https://travis-ci.org/nathancunn/particleMDI.jl.svg?branch=master)](https://travis-ci.org/nathancunn/particleMDI.jl)
+[![Build Status](https://travis-ci.org/nathancunn/particleMDI.jl.svg?branch=master)](https://travis-ci.org/nathancunn/ParticleMDI.jl)
 
 This package provides an implementation of particleMDI, a particle Gibbs version of MDI, allowing for the integrative cluster analysis of multiple datasets. particleMDI is built within the framework of [MDI (multiple data integration)](https://academic.oup.com/bioinformatics/article/28/24/3290/244641).
 
