@@ -39,11 +39,12 @@ function calc_logmarginal(cl::CategoricalCluster)
   # This returns the log of the marginal likelihood of the cluster
   # Used for feature selection
   # β_0 = 0.5
-  lm = Vector{Float64}(undef, length(cl.nlevels))
+  lm = zeros(Float64, length(cl.nlevels))
   for q in 1:length(cl.nlevels)
-    lm[q] += lgamma(cl.nlevels[q]) - lgamma.(cl.nlevels[q] .+ cl.n)
+    lm[q] += lgamma(cl.nlevels[q] * 2) - lgamma.(cl.nlevels[q] * 2 .+ cl.n)
     for r in 1:Int64(2 * cl.nlevels[q])
       lm[q] += lgamma(cl.counts[r, q] + 0.5)
+
     end
   end
   return lm

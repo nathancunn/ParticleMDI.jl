@@ -22,27 +22,10 @@ mutable struct GaussianCluster
 end
 
 function calc_logprob(obs::Array, cl::GaussianCluster, featureFlag::Array)
-  # Iterate over clusters
-   """
-   n = cl.n * 0.5 + 0.5
-  out = length(obs) * (SpecialFunctions.lgamma((n) + 0.5) -
-                                                SpecialFunctions.lgamma(n) -
-                                                0.5723649429247001)
-  # Iterate over features
-    for q in 1:size(obs, 1)
-      @inbounds out += 0.5 * log(cl.λ[q] / n) -
-                      (n + 0.5) * log((1.0 / n) *
-                      (obs[q] - cl.μ[q]) ^ 2.0 * cl.λ[q] + 1.0)
-    end
-    return out
-  """
-
     out = sum(featureFlag) * (log(1 / sqrt(pi)) +
                           SpecialFunctions.lgamma(0.5 * cl.n + 1.0) -
                           SpecialFunctions.lgamma(0.5 * cl.n + 0.5))
     # Iterate over features
-    # tmp = zeros(Float64, size(obs, 1))
-
       @inbounds for q in 1:size(obs, 1)
         if featureFlag[q]
         out += 0.5 * (log(cl.λ[q]) - log(cl.n + 1.0)) -
