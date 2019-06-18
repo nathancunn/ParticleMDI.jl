@@ -1,5 +1,5 @@
 using Distributions
-using particleMDI
+using ParticleMDI
 
 @static if VERSION < v"0.7.0-DEV.2005"
     using Base.Test
