@@ -1,4 +1,4 @@
-module particleMDI
+module ParticleMDI
 import Clustering.hclust
 import Distributions
 import NonUniformRandomVariateGeneration
