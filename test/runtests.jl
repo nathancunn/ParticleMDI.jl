@@ -8,13 +8,13 @@ using Test
 # Gaussian
 n = 1000
 test_data = rand(Normal(0, 1), n, 1)
-test_cluster = particleMDI.GaussianCluster(test_data)
+test_cluster = ParticleMDI.GaussianCluster(test_data)
 # Basic check it's been initialised
 @test test_cluster.n == 0
 # Check the logprob
-# particleMDI.calc_logprob(test_data[1, :], test_cluster)
+# ParticleMDI.calc_logprob(test_data[1, :], test_cluster)
 for obs in test_data
-    particleMDI.cluster_add!(test_cluster, [obs], [true])
+    ParticleMDI.cluster_add!(test_cluster, [obs], [true])
 end
 
 @test test_cluster.n == n
@@ -28,16 +28,16 @@ beta = 0.5 + 0.5 * (s2 + (0.001 * n * xbar ^ 2) / (n + 0.001))
 
 xcentred = (test_data[end, :][1] - test_cluster.μ[1]) * sqrt(test_cluster.λ[1])
 truelogprob = logpdf(TDist(test_cluster.n + 1), xcentred) + 0.5 * log(test_cluster.λ[1])
-estlogprob = particleMDI.calc_logprob(test_data[end, :], test_cluster, [true])
+estlogprob = ParticleMDI.calc_logprob(test_data[end, :], test_cluster, [true])
 @test isapprox(truelogprob, estlogprob)
 
 # Categorical
 test_data = rand(1:10, 1000, 1)
-test_cluster = particleMDI.CategoricalCluster(test_data)
+test_cluster = ParticleMDI.CategoricalCluster(test_data)
 @test test_cluster.n == 0
 
 for obs in test_data
-    particleMDI.cluster_add!(test_cluster, [obs], [true])
+    ParticleMDI.cluster_add!(test_cluster, [obs], [true])
 end
 
 @test test_cluster.n == 1000
@@ -46,7 +46,7 @@ for x in unique(test_data)
     @test sum(test_data .== x) == test_cluster.counts[x, 1]
 end
 
-@test isapprox(particleMDI.calc_logprob([1], test_cluster, [true]),
+@test isapprox(ParticleMDI.calc_logprob([1], test_cluster, [true]),
       log((sum(test_data .== 1) + 0.5) / (1005)))
 
 
@@ -99,7 +99,7 @@ for N = 2:20
                 end
             end
         end
-        @test isapprox(Z, particleMDI.update_Z(Φ, Φ_index, log.(Γ)))
+        @test isapprox(Z, ParticleMDI.update_Z(Φ, Φ_index, log.(Γ)))
     end
 end
 
@@ -121,10 +121,10 @@ end
 # Run over and over and check that if all the cluster values align
 # So do all the gammas
 for i = 1:10
-    particleMDI.align_labels!(s, Φ, γ, N, K)
+    ParticleMDI.align_labels!(s, Φ, γ, N, K)
     @test all(s[:, 2:K] .== s[:, 1]) == all(γ[:, 2:K] .== γ[:, 1])
 end
-particleMDI.align_labels!(s, Φ, γ, N, 0)
+ParticleMDI.align_labels!(s, Φ, γ, N, 0)
 
 @test all(s[:, 2:K] .== s[:, 1])
 @test all(γ[:, 2:K] .== γ[:, 1])
