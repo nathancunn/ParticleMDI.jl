@@ -76,9 +76,9 @@ function plot_pmdi_data(data,
                         right_margin = - 15px,
                         xlabel = "Features",
                         ylabel = "P(selected)")
-    l = @layout [a{0.975w, 0.75h} b{0.025w, 0.75h}; c{0.975w, 0.25h} d{0.025w, 0.25h}]
+    l = @layout [a{0.97w, 0.75h} b{0.02w, 0.75h}; c{0.97w, 0.25h} d{0.02w, 0.25h}]
   else
-    l = @layout [a{0.975w, 0.75h} b{0.025w, 0.75h};]
+    l = @layout [a{0.97w, 0.75h} b{0.02w, 0.75h};]
     order_cols = 1:size(dataFile, 2)
   end
 
