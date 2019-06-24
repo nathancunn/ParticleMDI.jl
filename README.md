@@ -6,7 +6,7 @@ This package provides an implementation of ParticleMDI, a particle Gibbs version
 
 ## Installation
 ```jl
-] add "git://github.com/nathancunn/ParticleMDI.jl.git"
+] add ParticleMDI
 ```
 
 ## Usage
@@ -34,7 +34,10 @@ using RDatasets
 data = [Matrix(dataset("datasets", "iris")[:, 1:4])]
 gaussian_normalise!(data[1])
 dataTypes = [ParticleMDI.GaussianCluster]
-pmdi(data, dataTypes, 10, 2, 0.99, 1000, "output/file.csv", true)
+# Run a simple run first to allow for compilation
+pmdi(data, dataTypes, 10, 2, 0.99, 1, "output/file.csv", true)
+pmdi(data, dataTypes, 10, 32, 0.25, 1000, "output/file.csv", true)
+
 ```
 
 ## Extending ParticleMDI for user-defined data types
