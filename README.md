@@ -13,10 +13,10 @@ This package provides an implementation of ParticleMDI, a particle Gibbs version
 The function `pmdi()` provides the primary functionality for `ParticleMDI`. It requires the specification of:
 - `dataFiles::Vector` a vector of K data matrices to be analysed
 - `dataTypes::Vector` a vector of K datatypes. Independent multivariate normals can be
-specified with `ParticleMDI.gaussianCluster`
+specified with `ParticleMDI.GaussianCluster`, categorical data with `ParticleMDI.CategoricalCluster` and negative binomial data with `ParticleMDI.NegBinomCluster`.
 - `N::Int64` the maximum number of clusters to fit
 - `particles::Int64` the number of particles
-- `ρ::Float64` proportion of allocations assumed known in each MCMC iteration
+- `ρ::Float64` proportion of allocations assumed known in each MCMC iteration, a value in (0, 1).
 - `iter::Int64` number of iterations to run
 - `outputFile::String` specification of a CSV file to store output
 - `featureSelect::Bool` defaults to `false`, setting `true` means feature selection will be performed.
