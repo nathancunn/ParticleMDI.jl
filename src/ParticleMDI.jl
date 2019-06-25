@@ -31,7 +31,7 @@ export pmdi,
         gaussian_normalise!, coerce_categorical,
         plot_phi_chain, plot_phi_matrix,
         plot_nclust_chain, plot_nclust_hist,
-        plot_pmdi_data,
+        plot_pmdi_data, get_feature_select_probs,
         generate_psm, consensus_map
 
 end # module

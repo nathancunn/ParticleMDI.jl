@@ -17,7 +17,8 @@ Generates a plot of a single raw data file, with the inferred clusters (as deriv
 - `k` optional - the number of clusters to highlight in the data
 - `h` optional - the distance at which to cut the dendrogram. One of `k` or `h` must be specified.
 - `orderby` observations in all plots are ordered in a way to separate clusters as well as possible. `orderby` specifies which dataset should be used to inform this ordering. `orderby = 0` will let the overall consensus dictate the ordering.
-- `featureSelectProbs` optional - a vector of probabilities of length d, where dataFile is n x d. Each probability is the frequency a feature is selected as output from `pmdi()`.
+- `featureSelect` optional - a Vector of feature selection probabilities as output from `get_feature_select_probs()`.
+- `z_score` - a Bool indicating whether the data should be standardised and discretised. Can help elucidate patterns.
 
 ## Output
 - A heatmap of the data with clusters indicated.
@@ -120,9 +121,36 @@ function plot_pmdi_data(data,
 
     Plots.plot(out...,
     layout = l,
+    size = (600, 400),
     link = :both,
     framestyle = :none,
     left_margin = - 15px,
     right_margin = - 10px,
     title_location = :left)
+end
+
+
+"""
+`get_feature_select_probs(featureSelect::String, dataName::String)`
+
+Generates a vector of mean feature selection probabilities from the feature selection output of `pmdi()`.
+## Input
+- `featureSelect::String` - a file specifying a .csv file containing feature selection flags as returned from `pmdi()`
+- `burnin::Int` - an integer specifying the number of iterations to discard from the beginning of the output
+- `thin::Int` - an integer specifying the rate of thinning of the output, e.g. `thin = 2` will keep only every second iteration.
+## Output
+- A Vector of length `K`, where `K` is the number of datasets analysed, each element containing a feature selection probability for each feature.
+"""
+function get_feature_select_probs(featureSelect::String, burnin::Int = 0, thin::Int = 1)
+  outputNames = split(readline(featureSelect), ',')
+  dataNames = unique([replace(outputName, r"([A-Za-z0-9])(_d.+)" => s"\1") for outputName in outputNames])
+
+  out = Vector{Any}(undef, length(dataNames))
+  for i in 1:length(out)
+      dataInd = map(outputNames) do str
+          occursin(dataNames[i], str)
+      end
+      out[i] = [mean(readdlm(featureSelect, ',')[(2 + burnin):thin:end, dataInd], dims = 1)[:]][1]
+  end
+  return out
 end

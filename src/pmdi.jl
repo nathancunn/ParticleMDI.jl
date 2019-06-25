@@ -22,25 +22,38 @@ specified with `particleMDI.gaussianCluster`
 - `ρ::Float64` proportion of allocations assumed known in each MCMC iteration
 - `iter::Int64` number of iterations to run
 - `outputFile::String` specification of a CSV file to store output
-- `featureSelect::Bool` flag for performing feature selection. All datatypes must support this. Default is false.
+- `thin::Int64` how frequently should observations be stored to file. `thin = 2` will store every other observation. Default is `thin = 1` (no thinning)
+- `featureSelect::Union{String, Nothing}` If `== nothing` feature selection will not be performed. Otherwise, specify a .csv file whil will record feature selection indicators for each dataset.
+- `dataNames` if `== nothing` dataset names will be assigned. Otherwise pass a vector of strings labelling each dataset.
 ## Output
 Outputs a .csv file, each row containing:
 - Mass parameter for datasets `1:K`
 - Φ value for `binomial(K, 2)` pairs of datasets
 - c cluster allocations for observations `1:n` in datasets `1:k`
-Returns `K` vectors of `d_k` feature selection probabilities.
+If featureSelect is specified also outputs a .csv file, each row containing:
+- Binary flag indicating feature selection for each feature in each dataset for each iteration
 """
 function pmdi(dataFiles, dataTypes, N::Int64, particles::Int64,
-    ρ::Float64, iter::Int64, outputFile::String, featureSelect::Bool = false)
+    ρ::Float64, iter::Int64, outputFile::String;
+     thin::Int64 = 1,
+     featureSelect::Union{String, Nothing} = nothing,
+     dataNames = nothing)
 
     K       = length(dataFiles) # No. of datasets
     n_obs   = size(dataFiles[1], 1)
 
+    # Set names if not specified
+    if dataNames == nothing
+        dataNames = ["K$i" for i in 1:K]
+    end
+
     @assert length(dataTypes) == K "Number of datatypes not equal to number of datasets"
+    @assert length(dataNames) == K "Number of data names not equal to number of datasets"
     @assert all(x->x==n_obs, [size(dataFiles[k])[1] for k = 1:K]) "Datasets don't have same number of observations. Each row must correspond to the same underlying observational unit across datasets."
     @assert (ρ < 1) && (ρ > 0) "ρ must be between 0 and 1"
-    @assert (N <= n_obs) & (N > 1) "Number of clusters must be greater than 1 and not greater than the number of observations"
+    @assert (N <= n_obs) & (N > 1) "Number of clusters must be greater than 1 and not greater than the number of observations, suggest using floor(log(n)) = $(floor(Int, log(n_obs)))"
     @assert particles > 1 "Conditional particle filter requires 2 or more particles"
+
 
     # Initialise the hyperparameters
     M = ones(Float64, K) .* 2 # Mass parameter
@@ -89,14 +102,20 @@ function pmdi(dataFiles, dataTypes, N::Int64, particles::Int64,
     logprob = [Vector{Float64}(undef, N * particles + 1) for k in 1:K]
     # Feature selection index
     featureFlag = [rand(Bool, size(dataFiles[k], 2)) for k in 1:K]
-    if !featureSelect
+    if featureSelect == nothing
         for k in 1:K
             featureFlag[k] .= true
         end
+    else
+        featureNames = ["$(dataNames[k])_d$d" for k in 1:K for d in 1:size(dataFiles[k], 2)]
+        writedlm(featureSelect, reshape(featureNames, 1, length(featureNames)), ',')
+        featureFile = open(featureSelect, "a")
+        writedlm(featureFile, [featureFlag...;]', ',')
     end
+
+
     # Feature select probabilities
     featureProb = [zeros(Float64, size(dataFiles[k], 2)) for k in 1:K]
-    featurePosterior = [featureFlag[k] ./ (iter + 1) for k in 1:K]
 
     # particle matches the cluster labels to the cluster IDs
     particle = [fill(1, (N, particles)) for k in 1:K]
@@ -112,9 +131,7 @@ function pmdi(dataFiles, dataTypes, N::Int64, particles::Int64,
                calculate_Φ_lab(K)[:, 1],
                calculate_Φ_lab(K)[:, 2]);
                "ll";
-               map((x, y) -> @sprintf("K%d_n%d", x, y),
-               repeat(1:K, inner = n_obs),
-               repeat(1:n_obs, outer = K))]
+               ["$(dataNames[k])_n$i" for k in 1:K for i in 1:n_obs]]
     out =  reshape(out, 1, length(out))
     writedlm(outputFile, out, ',')
     fileid = open(outputFile, "a")
@@ -241,7 +258,7 @@ function pmdi(dataFiles, dataTypes, N::Int64, particles::Int64,
 
         # Feature selection
         ## Create a null particle with every obs in one cluster
-        if featureSelect
+        if featureSelect != nothing
             nullCluster = [dataTypes[k](dataFiles[k]) for k in 1:K]
             for k = 1:K
                 featureFlag[k] .= true
@@ -262,7 +279,7 @@ function pmdi(dataFiles, dataTypes, N::Int64, particles::Int64,
                     featureProb[k] += calc_logmarginal(clust_params)
                 end
                 featureFlag[k] = (1 .- 1 ./ (exp.(featureProb[k] .+ 1))) .> rand(length(featureProb[k]))
-                featurePosterior[k] += featureFlag[k] ./ (iter + 1)
+                # featurePosterior[k] += featureFlag[k] ./ (iter + 1)
             end
         end
 
@@ -272,8 +289,16 @@ function pmdi(dataFiles, dataTypes, N::Int64, particles::Int64,
         align_labels!(s, Φ, γc, N, K)
 
         ll = (time_ns() - ll1) / 1.0e9
-        writedlm(fileid, [M; Φ; ll; s[1:(n_obs * K)]]', ',')
+        if it % thin == 0
+            writedlm(fileid, [M; Φ; ll; s[1:(n_obs * K)]]', ',')
+            if featureSelect != nothing
+                writedlm(featureFile, [featureFlag...;]', ',')
+            end
+        end
     end
     close(fileid)
-    return featurePosterior
+    if featureSelect != nothing
+        close(featureFile)
+    end
+    return
 end
