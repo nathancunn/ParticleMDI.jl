@@ -93,7 +93,7 @@ function get_consensus_allocations(psm::Posterior_similarity_matrix, nclust::Int
     if orderby == 0
         orderby = size(psm.psm, 1)
     end
-    hc = hclust(1 .- Symmetric(psm.psm[orderby], :L), linkage = :ward, uplo = :L)
+    hc = hclust(1 .- Symmetric(psm.psm[orderby], :L), linkage = :ward)
     return cutree(hc, k = nclust)
 end
 
