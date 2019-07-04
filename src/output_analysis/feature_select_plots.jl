@@ -9,7 +9,8 @@ using Plots.PlotMeasures
                 k::Union{Int64, Nothing} = nothing,
                 h::Union{Float64, Nothing} = nothing,
                 orderby::Int64 = 0,
-                featureSelectProbs = nothing)`
+                featureSelectProbs = nothing,
+                z_Score::Bool = false)`
 
 Generates a plot of a single raw data file, with the inferred clusters (as derived from the psm). If featureSelectProbs is supplied, features will be ordered according to the frequency they are selected in the model and the density of feature selection probabilities will be displayed along the margins.
 ## Input
@@ -29,7 +30,8 @@ function plot_pmdi_data(data,
                         h::Union{Float64, Nothing} = nothing,
                         orderby::Int64 = 0,
                         featureSelectProbs = nothing,
-                        z_score::Bool = false)
+                        z_score::Bool = false,
+                        linkage = :ward)
   dataFile = deepcopy(data)
   if featureSelectProbs != nothing
     @assert length(featureSelectProbs) == size(dataFile, 2) "Feature selection vector is not the same length as the number of features"
@@ -48,7 +50,7 @@ function plot_pmdi_data(data,
   if orderby == 0
       orderby = size(psm.psm, 1)
   end
-  hc = hclust(1 .- Symmetric(psm.psm[orderby], :L), linkage = :ward)
+  hc = hclust(1 .- Symmetric(psm.psm[orderby], :L), linkage = linkage)
   if h == nothing
     cuts = cutree(hc, k = k)[hc.order]
   elseif k == nothing
@@ -74,12 +76,12 @@ function plot_pmdi_data(data,
                         grid = false,
                         widen = false,
                         top_margin = - 7.5px,
-                        right_margin = - 15px,
+                        xlims = (0.5, size(dataFile, 2) - 0.5),
                         xlabel = "Features",
-                        ylabel = "P(selected)")
-    l = @layout [a{0.97w, 0.75h} b{0.02w, 0.75h}; c{0.97w, 0.25h} d{0.02w, 0.25h}]
+                        ylabel = "P(select)")
+    l = @layout [a{0.97w, 0.8h} b{0.03w, 0.8h}; c{0.97w, 0.2h} d{0.03w, 0.2h}]
   else
-    l = @layout [a{0.97w, 0.75h} b{0.02w, 0.75h};]
+    l = @layout [a{0.97w, 0.97h} b{0.03w, 0.97h};]
     order_cols = 1:size(dataFile, 2)
   end
 
@@ -89,7 +91,7 @@ function plot_pmdi_data(data,
   clusters_plot = Plots.heatmap(clusters_matrix,
   legend = false,
   ticks = false,
-  widen = false,
+  yaxis = false,
   c = :viridis,
   bottom_margin = -7.5px)
   hline!(ticks, c = "#000000")
@@ -109,23 +111,26 @@ function plot_pmdi_data(data,
   bottom_margin = -7.5px,
   ylabel = "Observations",
   c = :viridis,
+  xlims = (0.5, size(dataFile, 2) - 0.5),
   titlefont = Plots.font(family = "serif", pointsize = 12))
   hline!(ticks, linestyle = :dash, c = "#FFFFFF")
 
   if featureSelectProbs != nothing
     out = [data_plot, clusters_plot, fs_plot, clusters_plot2]
   else
+    xlabel!("Features")
     out = [data_plot, clusters_plot]
   end
 
 
     Plots.plot(out...,
     layout = l,
-    size = (600, 400),
+    size = (600, 337.5),
+    dpi = 300,
     link = :both,
     framestyle = :none,
-    left_margin = - 15px,
-    right_margin = - 10px,
+    left_margin = 10px,
+    right_margin = 0px,
     title_location = :left)
 end
 

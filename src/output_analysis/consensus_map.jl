@@ -89,12 +89,19 @@ end
 """
 `get_consensus_allocations(psm::Posterior_similarity_matrix, nclust::Int64, orderby::Int64 = 0)`
 """
-function get_consensus_allocations(psm::Posterior_similarity_matrix, nclust::Int64, orderby::Int64 = 0)
+function get_consensus_allocations(psm::Posterior_similarity_matrix; k::Union{Int64, Nothing}=nothing, h::Union{Float64, Nothing} = nothing,
+    linkage = :ward, orderby::Int64 = 0)
+    @assert (k != nothing) | (h != nothing) "You must specify either k (number of clusters) or h (height to cut dendrogram)"
     if orderby == 0
         orderby = size(psm.psm, 1)
     end
-    hc = hclust(1 .- Symmetric(psm.psm[orderby], :L), linkage = :ward)
-    return cutree(hc, k = nclust)
+    hc = hclust(1 .- Symmetric(psm.psm[orderby], :L), linkage = linkage)
+    if k != nothing
+        return cutree(hc, k = k)
+    elseif h != nothing
+        return cutree(hc, h = h)
+    end
+
 end
 
 
@@ -118,13 +125,14 @@ of K datasets.
 function consensus_map(psm::Posterior_similarity_matrix;
                        k::Union{Int64, Nothing} = nothing,
                        h::Union{Float64, Nothing} = nothing,
-                       orderby::Int64 = 0)
+                       orderby::Int64 = 0,
+                       linkage = :ward)
     @assert (k != nothing) | (h != nothing) "You must specify either k (number of clusters) or h (height to cut dendrogram)"
     if (orderby == 0) | (orderby == - 1)
         orderby_main = size(psm.psm, 1)
     else orderby_main = orderby
     end
-    hc = hclust(1 .- Symmetric(psm.psm[orderby_main], :L), linkage = :ward)
+    hc = hclust(1 .- Symmetric(psm.psm[orderby_main], :L), linkage = linkage)
     if h == nothing
         cuts = cutree(hc, k = k)[hc.order]
     elseif k == nothing
@@ -168,6 +176,8 @@ function consensus_map(psm::Posterior_similarity_matrix;
                         yflip = false,
                         title = psm.names[1],
                         legend = false,
+                        size = (600, 337.5),
+                        dpi = 300,
                         aspect_ratio = 1,
                         c = :viridis,
                         titlefont = Plots.font(family = "serif", pointsize = 12))]
