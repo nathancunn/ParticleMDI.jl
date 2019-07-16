@@ -4,10 +4,10 @@
 # α_0 = 1
 # r = 1
 mutable struct NegBinomCluster
-  n::Int64
-  Σ::Vector{Int64}   ## sum of observations in clusters
+  n::Int
+  Σ::Vector{Int}   ## sum of observations in clusters
   NegBinomCluster(dataFile) =         new(0,
-                                      Vector{Int64}(zeros(Int64, size(dataFile, 2))))
+                                      Vector{Int}(zeros(Int, size(dataFile, 2))))
 end
 
 function calc_logprob(obs::Array, cl::NegBinomCluster, featureFlag::Array)

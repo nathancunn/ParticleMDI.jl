@@ -1,17 +1,17 @@
 ## Define a particle consisting of all cluster variables for a Categorical mixture
 mutable struct CategoricalCluster
-  n::Float64                          # count of cluster members
-  counts::Matrix{Int64}     # count of occurrence of levels
+  n::Int                          # count of cluster members
+  counts::Matrix{Int}     # count of occurrence of levels
   nlevels::Array{Float64}           # The denominator in logprob calculation
-  CategoricalCluster(dataFile::Matrix{Int64}) =
+  CategoricalCluster(dataFile::Matrix{Int}) =
   new(0,
-      zeros(Int64, maximum(dataFile), size(dataFile, 2)),
+      zeros(Int, maximum(dataFile), size(dataFile, 2)),
       # [0.5 * maximum(dataFile[:, d]) for d = 1:size(dataFile, 2)]
       0.5 * maximum(dataFile, dims = 1))
 end
 
 
-function calc_logprob(obs::Array{Int64}, cl::CategoricalCluster, featureFlag::Array)
+function calc_logprob(obs::Array{Int}, cl::CategoricalCluster, featureFlag::Array)
   out = - sum(log.(cl.nlevels[featureFlag] .+ cl.n))
   @inbounds for q = 1:length(obs)
     if featureFlag[q]
@@ -25,11 +25,11 @@ function calc_logprob(obs::Array{Int64}, cl::CategoricalCluster, featureFlag::Ar
   return out
 end
 
-function cluster_add!(cl::CategoricalCluster, obs::Array{Int64}, featureFlag::Array)
-  @inbounds cl.n  += Int64(1)
+function cluster_add!(cl::CategoricalCluster, obs::Array{Int}, featureFlag::Array)
+  @inbounds cl.n  += Int(1)
   @simd for q = 1:length(obs)
     if featureFlag[q]
-      @inbounds cl.counts[obs[q], q] += Int64(1)
+      @inbounds cl.counts[obs[q], q] += Int(1)
     end
   end
   return
@@ -42,7 +42,7 @@ function calc_logmarginal(cl::CategoricalCluster)
   lm = zeros(Float64, length(cl.nlevels))
   for q in 1:length(cl.nlevels)
     lm[q] += lgamma(cl.nlevels[q] * 2) - lgamma.(cl.nlevels[q] * 2 .+ cl.n)
-    for r in 1:Int64(2 * cl.nlevels[q])
+    for r in 1:Int(2 * cl.nlevels[q])
       lm[q] += lgamma(cl.counts[r, q] + 0.5)
 
     end
@@ -66,11 +66,11 @@ Converts a matrix of categorical data into the format expected by particleMDI
 function coerce_categorical(data)
   max_i = size(data, 1)
   max_j = size(data, 2)
-  out = Matrix{Int64}(undef, max_i, max_j)
+  out = Matrix{Int}(undef, max_i, max_j)
   for j in 1:max_j
     u = unique(data[:, j])
     for i in 1:max_i
-      out[i, j] = Int64(findall(x -> x == data[i, j], u)[1])
+      out[i, j] = Int(findall(x -> x == data[i, j], u)[1])
     end
   end
   return out

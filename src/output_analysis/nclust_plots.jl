@@ -37,13 +37,13 @@ end
 
 
 function plot_nclust_hist(outputFile::String, burnin::Int64 = 0, thin::Int64 = 1)
-    plot_matrix, dataNames, K = particleMDI.get_nclust(outputFile, burnin, thin)
+    plot_matrix, dataNames, K = get_nclust(outputFile, burnin, thin)
 
     clust_range = (minimum(plot_matrix), maximum(plot_matrix))
     Plots.histogram(plot_matrix,
                     bins = clust_range[1]:clust_range[2],
                     layout = K,
-                    color = [i for j = 1:1, i = 1:K],                    
+                    c = :viridis,
                     legend = false,
                     title = [dataNames[i] for j = 1:1, i = 1:K],
                     titlefont = Plots.font(family = "serif", pointsize = 12))
@@ -55,7 +55,7 @@ function plot_nclust_chain(outputFile::String, burnin::Int64 = 0, thin::Int64 = 
     Plots.plot(plot_matrix,
                     legend = false,
                     layout = K,
-                    color = [i for j = 1:1, i = 1:K],
+                    c = :viridis,
                     title = [dataNames[i] for j = 1:1, i = 1:K],
                     titlefont = Plots.font(family = "serif", pointsize = 12))
 end

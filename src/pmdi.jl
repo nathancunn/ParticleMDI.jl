@@ -51,7 +51,7 @@ function pmdi(dataFiles, dataTypes, N::Int64, particles::Int64,
     @assert length(dataNames) == K "Number of data names not equal to number of datasets"
     @assert all(x->x==n_obs, [size(dataFiles[k])[1] for k = 1:K]) "Datasets don't have same number of observations. Each row must correspond to the same underlying observational unit across datasets."
     @assert (ρ < 1) && (ρ > 0) "ρ must be between 0 and 1"
-    @assert (N <= n_obs) & (N > 1) "Number of clusters must be greater than 1 and not greater than the number of observations, suggest using floor(log(n)) = $(floor(Int, log(n_obs)))"
+    @assert (N <= n_obs) & (N > 1) "Number of clusters must be greater than 1 and not greater than the number of observations, suggest using floor(log(n)) = $(floor(Int64, log(n_obs)))"
     @assert particles > 1 "Conditional particle filter requires 2 or more particles"
 
 
@@ -99,7 +99,8 @@ function pmdi(dataFiles, dataTypes, N::Int64, particles::Int64,
     # Ancestor weights for ancestor sampling
     ancestor_weights = zeros(Float64, particles)
     # Mutation weights
-    logprob = [Vector{Float64}(undef, N * particles + 1) for k in 1:K]
+    # logprob = [Vector{Float64}(undef, N * particles + 1) for k in 1:K]
+    logprob = Matrix{Float64}(undef, N * particles + 1, K)
     # Feature selection index
     featureFlag = [rand(Bool, size(dataFiles[k], 2)) for k in 1:K]
     if featureSelect == nothing
@@ -116,10 +117,20 @@ function pmdi(dataFiles, dataTypes, N::Int64, particles::Int64,
 
     # Feature select probabilities
     featureProb = [zeros(Float64, size(dataFiles[k], 2)) for k in 1:K]
+    featureNull = [zeros(Float64, size(dataFiles[k], 2)) for k in 1:K]
+    nullCluster = [dataTypes[k](dataFiles[k]) for k in 1:K]
+    for k = 1:K
+        for i = 1:n_obs
+            cluster_add!(nullCluster[k], dataFiles[k][i, :], ones(Bool, size(dataFiles[k], 2)))
+        end
+        featureNull[k] = - calc_logmarginal(nullCluster[k])
+    end
 
     # particle matches the cluster labels to the cluster IDs
-    particle = [fill(1, (N, particles)) for k in 1:K]
-    logprob_particle = [Matrix{Float64}(undef, N, particles) for k in 1:K]
+    # particle = [fill(1, (N, particles)) for k in 1:K]
+    particle = ones(Int64, N, particles, K)
+    # logprob_particle = [Matrix{Float64}(undef, N, particles) for k in 1:K]
+    logprob_particle = zeros(Float64, N, particles, K)
 
     # A vector containing all of the clusters
     clusters = [Vector{dataTypes[k]}(undef, N * particles + 1) for k in 1:K]
@@ -140,18 +151,18 @@ function pmdi(dataFiles, dataTypes, N::Int64, particles::Int64,
     writedlm(fileid, [M; Φ; ll;  s[1:(n_obs * K)]]', ',')
 
     order_obs = collect(1:n_obs)
-    n1 = floor(Int, ρ * n_obs)
+    n1 = floor(Int64, ρ * n_obs)
 
     @inbounds for it in 1:iter
-        for k in 1:K
-            for i in eachindex(particle[k])
-                particle[k][i] = 1
-            end
+        for i in eachindex(particle)
+            particle[i] = 1
         end
         shuffle!(order_obs)
 
         # Update hyperparameters
-        update_Φ!(Φ, v, s, Φ_index, γc, K, Γc)
+        if K > 1
+            update_Φ!(Φ, v, s, Φ_index, γc, K, Γc)
+        end
         update_γ!(γc, Φ, v, M, s, Φ_index, c_combn, Γc, N, K)
         Π = γc ./ sum(γc, dims = 1)
         Z = update_Z(Φ, Φ_index, Γc)
@@ -178,25 +189,29 @@ function pmdi(dataFiles, dataTypes, N::Int64, particles::Int64,
             for i in order_obs[1:(n1 - 1)]
                 id = findall((in)(s[i, k]), us)[1] + 1
                 cluster_add!(clusters[k][id], dataFiles[k][i, :], featureFlag[k])
-                particle[k][s[i, k], :] .= id
-                sstar[:, i, k] .= s[i, k]
+                for p in 1:particles
+                    particle[s[i, k], p, k] = id
+                    sstar[p, i, k] = s[i, k]
+                end
             end
         end
 
         @inbounds for i in order_obs[n1:n_obs]
             for k in 1:K
                 obs = dataFiles[k][i, :]
-                for id in 1:maximum(particle[k])
-                    logprob[k][id] = calc_logprob(obs, clusters[k][id], featureFlag[k])
+                particle_k = view(particle, :, :, k)
+                logprob_particle_k = view(logprob_particle, :, :, k)
+                for id in 1:maximum(particle_k)
+                    logprob[id, k] = calc_logprob(obs, clusters[k][id], featureFlag[k])
                 end
-                logprob_particle[k] = logprob[k][particle[k]]
+                logprob_particle_k = logprob[particle_k, k]
 
                 # Draw the new allocations
                 for p in 1:particles
-                    fprob = logprob_particle[k][:, p]
+                    fprob = logprob_particle_k[:, p]
                     max_logprob = maximum(fprob)
                     for n in 1:N
-                        @fastmath fprob[n] = Π[n, k] * exp(fprob[n] - max_logprob)
+                        fprob[n] = Π[n, k] * exp(fprob[n] - max_logprob)
                     end
                     logweight[p] += log(sum(fprob)) + max_logprob
                     # Set reference trajectory
@@ -205,14 +220,15 @@ function pmdi(dataFiles, dataTypes, N::Int64, particles::Int64,
                     else
                         new_s = s[i, k]
                     end
-                    sstar_id[p, k] = particle[k][new_s, p]
+                    sstar_id[p, k] = particle[new_s, p, k]
                     sstar[p, i, k] = new_s
                 end
 
                 # Add observation to new cluster
-                max_k = maximum(particle[k])
+                max_k = maximum(particle_k)
+                sstar_id_k = view(sstar_id, :, k)
                 for p in unique(sstar_id[:, k])
-                    if wipedout(particle[k], sstar_id[:, k], p)
+                    if wipedout(particle_k, sstar_id_k, p)
                         # If the origin cluster still exists somewhere
                         # Need to create a new cluster
                         # with obs added to it
@@ -224,26 +240,28 @@ function pmdi(dataFiles, dataTypes, N::Int64, particles::Int64,
                     end
                     cluster_add!(clusters[k][id], obs, featureFlag[k])
                     for part in 1:particles
-                        if particle[k][sstar[part, i, k], part] == p
-                            particle[k][sstar[part, i, k], part] = id
+                        if particle[sstar[part, i, k], part, k] == p
+                            particle[sstar[part, i, k], part, k] = id
                         end
                     end
                 end
             end
-
-            Φ_upweight!(logweight, sstar[:, i, :], K, Φ, particles)
+            if K > 1
+                Φ_upweight!(logweight, sstar[:, i, :], K, Φ, particles)
+            end
 
             # Resampling
             if calc_ESS(logweight) <= - 0.5 * particles
                 partstar = draw_partstar(logweight, particles)
                 logweight .= 1.0
                 for k in 1:K
-                    particle[k] = particle[k][:, partstar]
-                    for (i, id) in enumerate(1:(maximum(particle[k])))
+                    particle[:, :, k] = particle[:, partstar, k]
+                    for (i, id) in enumerate(1:(maximum(particle[:, :, k])))
                         if id !== i
-                            for j in eachindex(particle[k])
-                                if particle[k][j] == id
-                                    particle[k][j] = i
+                            particle_k = view(particle, :, :, k)
+                            for j in eachindex(particle_k)
+                                if particle_k[j] == id
+                                    particle_k[j] = i
                                 end
                             end
                             clusters[k][i] = deepcopy(clusters[k][id])
@@ -254,27 +272,25 @@ function pmdi(dataFiles, dataTypes, N::Int64, particles::Int64,
         end
 
         # Select a single particle
-        p_star = sample(1:particles, Weights(exp.(logweight .- maximum(logweight))))
+        p_weights = similar(logweight)
+        max_logweight = maximum(logweight)
+        for i in eachindex(p_weights)
+            p_weights[i] = exp(logweight[i] - max_logweight)
+        end
+        p_star = sample(1:particles, Weights(p_weights))
 
         # Feature selection
         ## Create a null particle with every obs in one cluster
         if featureSelect != nothing
-            nullCluster = [dataTypes[k](dataFiles[k]) for k in 1:K]
-            for k = 1:K
-                featureFlag[k] .= true
-                for i = 1:n_obs
-                    cluster_add!(nullCluster[k], dataFiles[k][i, :], featureFlag[k])
-                end
-                featureProb[k] = - calc_logmarginal(nullCluster[k])
-            end
             ## Compare this to the marginal likelihood for each cluster
             for k = 1:K
+                featureProb[k] = featureNull[k] .+ 0
                 occupiedClusters = unique(sstar[p_star, :, k])
                 for clust in occupiedClusters
                     clust_members = findindices(sstar[p_star, :, k], clust)
                     clust_params = dataTypes[k](dataFiles[k])
                     for obs in clust_members
-                        cluster_add!(clust_params, dataFiles[k][obs, :], featureFlag[k])
+                        cluster_add!(clust_params, dataFiles[k][obs, :], ones(Bool, size(dataFiles[k], 2)))
                     end
                     featureProb[k] += calc_logmarginal(clust_params)
                 end

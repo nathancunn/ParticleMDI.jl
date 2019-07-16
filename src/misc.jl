@@ -1,5 +1,5 @@
-@inline function calculate_Φ_lab(K::Int64)
-    Φ_lab = K > 1 ? Matrix{Int64}(undef, binomial(K, 2), 2) : [1 1]
+@inline function calculate_Φ_lab(K::Int)
+    Φ_lab = K > 1 ? Matrix{Int}(undef, binomial(K, 2), 2) : [1 1]
     if K > 1
         i = 1
         for k1 in 1:(K - 1)
@@ -27,7 +27,7 @@ end
 function draw_partstar(logweight, particles)
     u = rand() / particles
     pprob = cumsum(exp.(logweight .- maximum(logweight)))
-    partstar = zeros(Int64, particles)
+    partstar = zeros(Int, particles)
     i = 0
     for p = 1:particles
         while pprob[p] / last(pprob) >= u
@@ -47,22 +47,18 @@ function draw_partstar(logweight, particles)
 end
 
 
-function Φ_upweight!(logweight, sstar, K::Int64, Φ, particles)
-    if K == 1
-        return
-    else
-        Φ_lab = calculate_Φ_lab(K)
-        for i in 1:binomial(K, 2)
-            Φ_log = log(1 + Φ[i])
-            for p in 1:particles
-                logweight[p] += (sstar[p, Φ_lab[i, 1]] == sstar[p, Φ_lab[i, 2]]) * Φ_log
-            end
+function Φ_upweight!(logweight, sstar, K::Int, Φ, particles)
+    Φ_lab = calculate_Φ_lab(K)
+    for i in 1:binomial(K, 2)
+        Φ_log = log(1 + Φ[i])
+        for p in 1:particles
+            logweight[p] += (sstar[p, Φ_lab[i, 1]] == sstar[p, Φ_lab[i, 2]]) * Φ_log
         end
     end
     return
 end
 
-function align_labels!(s::Array, Φ::Array, γ::Array, N::Int64, K::Int64)
+function align_labels!(s::Array, Φ::Array, γ::Array, N::Int, K::Int)
     K == 1 && return
     Φ_lab = calculate_Φ_lab(K)
     Φ_log = log.(Φ .+ 1)
@@ -98,7 +94,7 @@ function align_labels!(s::Array, Φ::Array, γ::Array, N::Int64, K::Int64)
     end
 end
 
-@inline function count_equals(A::Array, b::Int64)
+@inline function count_equals(A::Array, b::Int)
     out = zeros(Float64, size(A, 2))
     for i in 1:size(A, 1)
         for j in 1:size(A, 2)
@@ -111,7 +107,7 @@ end
 end
 
 
-@inline function setdiff2(K::Int64, b::Int64)
+@inline function setdiff2(K::Int, b::Int)
     # Specifically find diff between set 1:K and
     # integer b
     out = ones(Bool, K)
@@ -119,7 +115,7 @@ end
     return out
 end
 
-@inline function find_logical(A::Vector, b::Int64)
+@inline function find_logical(A::Vector, b::Int)
     # Return a bit-array indicating where A has value b
     out = zeros(Bool, size(A, 1))
     for i in eachindex(A)
@@ -143,7 +139,7 @@ end
 @inline function findindices(A, b)
     # Find all occurrences of b in A
     # Specifically for finding occurrences of gamma
-    out = Int64[]
+    out = Int[]
     for (i, a) in enumerate(A)
         if a == b
             push!(out, i)

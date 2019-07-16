@@ -15,13 +15,13 @@ mutable struct GaussianCluster
   λ::Vector{Float64}
   β::Vector{Float64}
   GaussianCluster(dataFile) =         new(0,
-                                      Vector{Float64}(zeros(Float64, size(dataFile, 2))),
-                                      Vector{Float64}(zeros(Float64, size(dataFile, 2))),
-                                      Vector{Float64}(ones(Float64, size(dataFile, 2))),
-                                      Vector{Float64}(ones(Float64, size(dataFile, 2))) .* 0.5)
+                                      zeros(Float64, size(dataFile, 2)),
+                                      zeros(Float64, size(dataFile, 2)),
+                                      ones(Float64, size(dataFile, 2)),
+                                      ones(Float64, size(dataFile, 2)) .* 0.5)
 end
 
-function calc_logprob(obs::Array, cl::GaussianCluster, featureFlag::Array)
+function calc_logprob(obs, cl::GaussianCluster, featureFlag)
     out = sum(featureFlag) * (log(1 / sqrt(pi)) +
                           SpecialFunctions.lgamma(0.5 * cl.n + 1.0) -
                           SpecialFunctions.lgamma(0.5 * cl.n + 0.5))
