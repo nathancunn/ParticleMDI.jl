@@ -6,3 +6,4 @@ output/67427500
 *.SVG
 src/pmdi_inf.jl
 test.pdf
+julia_rho_test.jl
