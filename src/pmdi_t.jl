@@ -9,7 +9,7 @@ using Statistics
 using StatsBase
 
 """
-`pmdi(dataFiles, dataTypes, N::Int64, particles::Int64,
+`pmdi_t(dataFiles, dataTypes, N::Int64, particles::Int64,
 ρ::Float64, iter::Int64, outputFile::String, initialise::Bool,
 output_freq::Int64)`
 Runs particleMDI on specified datasets
@@ -33,7 +33,7 @@ Outputs a .csv file, each row containing:
 If featureSelect is specified also outputs a .csv file, each row containing:
 - Binary flag indicating feature selection for each feature in each dataset for each iteration
 """
-function pmdi(dataFiles, dataTypes, N::Int64, particles::Int64,
+function pmdi_t(dataFiles, dataTypes, N::Int64, particles::Int64,
     ρ::Float64, iter::Int64, outputFile::String;
      thin::Int64 = 1,
      featureSelect::Union{String, Nothing} = nothing,
