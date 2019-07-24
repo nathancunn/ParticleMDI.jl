@@ -67,15 +67,18 @@ function plot_pmdi_data(data,
 
   if featureSelectProbs != nothing
     order_cols = sortperm(featureSelectProbs, rev = true)
-    fs_plot = Plots.bar(featureSelectProbs[order_cols] .* 243,
+    fs_plot = Plots.bar(featureSelectProbs[order_cols] .* size(data, 1),
                         legend = false,
                         fill = "#000000",
                         linealpha = 0,
                         yflip = true,
-                        ticks = false,
+                        tickfontsize = 1,
+                        xticks = false,
                         grid = false,
                         widen = false,
                         top_margin = - 7.5px,
+                        left_margin = 0px,
+                        right_margin = - 7.5px,
                         xlims = (0.5, size(dataFile, 2) - 0.5),
                         xlabel = "Features",
                         ylabel = "P(select)")
@@ -85,34 +88,63 @@ function plot_pmdi_data(data,
     order_cols = 1:size(dataFile, 2)
   end
 
-  clusters_matrix = Matrix{Int64}(undef, size(dataFile, 1), 1)
-  clusters_matrix .= cuts
+  # clusters_matrix = Matrix{Int64}(undef, size(dataFile, 1), 1)
+  # clusters_matrix .= cuts
 
-  clusters_plot = Plots.heatmap(clusters_matrix,
-  legend = false,
-  ticks = false,
-  yaxis = false,
-  c = :viridis,
-  bottom_margin = -7.5px)
-  hline!(ticks, c = "#000000")
+  clust_mat = Matrix{Int64}(undef, nclust, 2)
+  clust_mat[:, 1] =  unique(cuts)
+  tmp = cumsum(map(x -> count(cuts .== x), clust_mat[:, 1]))
+  clust_mat[:, 2] = tmp[end:-1:1]
+  labs_y = vcat(tmp[1] / 2,
+              tmp[1:end - 1] + (tmp[2:end] - tmp[1:end-1]) ./ 2)
+  C(n) = [RGB(cgrad(:viridis)[floor(Int, z)]) for z in collect(LinRange(1, 30, n))]
+  clusters_plot = plot(palette = C(nclust))
+  bar!(clust_mat[:, 2]',
+       seriescolor = clust_mat[:, 1]',
+          legend = false,
+          yflip = false,
+          widen = false,
+          yaxis = false,
+          xticks = false,
+          tickfontsize = 1,
+          bottom_margin = -7.5px,
+          left_margin = - 7.5px,
+          annotation = (1, labs_y, clust_mat[end:-1:1, 1]))
 
-  clusters_plot2 = Plots.heatmap(clusters_matrix,
+
+  #clusters_plot = Plots.heatmap(clusters_matrix,
+  #tickfontsize = 1,
+  #legend = false,
+  #yaxis = false,
+  #xticks = false,
+  #palette = :viridis,
+  #bottom_margin = -7.5px,
+  #left_margin = - 7.5px)
+  #hline!(ticks, palette = "#000000")
+
+
+  clusters_plot2 = Plots.bar(clust_mat[:, 2]',
+  tickfontsize = 1,
   legend = false,
-  ticks = false,
   widen = false,
   α = 0,
-  top_margin = - 7.5px)
+  top_margin = - 7.5px,
+  left_margin = - 7.5px
+  )
 
   data_plot = Plots.heatmap(dataFile[order_rows, order_cols],
-  ticks = false,
+  tickfontsize = 1,
+  xticks = false,
   yflip = false,
   legend = false,
   widen = false,
+  left_margin = 0px,
   bottom_margin = -7.5px,
+  right_margin = -7.5px,
   ylabel = "Observations",
   c = :viridis,
-  xlims = (0.5, size(dataFile, 2) - 0.5),
-  titlefont = Plots.font(family = "serif", pointsize = 12))
+  xlims = (0.5, size(dataFile, 2) - 0.5)
+  )
   hline!(ticks, linestyle = :dash, c = "#FFFFFF")
 
   if featureSelectProbs != nothing
@@ -125,13 +157,10 @@ function plot_pmdi_data(data,
 
     Plots.plot(out...,
     layout = l,
-    size = (600, 337.5),
-    dpi = 300,
     link = :both,
     framestyle = :none,
-    left_margin = 10px,
-    right_margin = 0px,
-    title_location = :left)
+    right_margin = -5px,
+    tickfontsize = 1)
 end
 
 

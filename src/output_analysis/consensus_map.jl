@@ -150,14 +150,16 @@ function consensus_map(psm::Posterior_similarity_matrix;
     if (K > 1) & (orderby != - 1)
         plots = [Plots.heatmap(Symmetric(psm.psm[k], :L)[hc.order, hc.order],
                         ticks = false,
+                        axis = nothing,
+                        tickfontsize = 1,
                         yflip = false,
                         title = psm.names[k],
                         legend = false,
                         aspect_ratio = 1,
+                        widen = false,
                         c = :viridis,
-                        clim = (0, 1),
-                        titlefont = Plots.font(family = "serif", pointsize = 12)) for k in [K; 1:max(K - 1, 1)]]
-        l = @layout [a{0.8w} grid(max(K - 1, 1), 1)]
+                        clim = (0, 1)) for k in [K; 1:max(K - 1, 1)]]
+        l = @layout [a{0.85w} grid(max(K - 1, 1), 1)]
     elseif (K > 1) & (orderby == - 1)
         plot_order = [hclust(1 .- Symmetric(psm.psm[k], :L), linkage = :ward).order for k in 1:K]
         plots = [Plots.heatmap(Symmetric(psm.psm[k], :L)[plot_order[k], plot_order[k]],
@@ -168,34 +170,29 @@ function consensus_map(psm::Posterior_similarity_matrix;
                         aspect_ratio = 1,
                         c = :viridis,
                         clim = (0, 1),
-                        titlefont = Plots.font(family = "serif", pointsize = 12)) for k in [K; 1:max(K - 1, 1)]]
-        l = @layout [a{0.8w} grid(max(K - 1, 1), 1)]
+                        widen = false) for k in [K; 1:max(K - 1, 1)]]
+        l = @layout [a{0.85w} grid(max(K - 1, 1), 1)]
     elseif K == 1
         plots = [Plots.heatmap(Symmetric(psm.psm[1], :L)[hc.order, hc.order],
                         ticks = false,
                         yflip = false,
                         title = psm.names[1],
                         legend = false,
-                        size = (600, 337.5),
-                        dpi = 300,
                         aspect_ratio = 1,
-                        c = :viridis,
-                        titlefont = Plots.font(family = "serif", pointsize = 12))]
+                        widen = false,
+                        # titlefont = Plots.font(family = "serif", pointsize = 12),
+                        c = :viridis
+                        )]
         l = @layout [a;]
     end
 
 
 
     Plots.plot(plots..., layout = l,
-               left_margin= -5px,
-               right_margin = -5px,
-               bottom_margin = -5px,
-               top_margin = -5px,
-               title_location = :left)
+               framestyle = :none)
     plot!(ticks1, ticks2, seriestype = :path, c = "#FFFFFF", linestyle = :dash)
     plot!(ticks1, ticks3, seriestype = :path, c = "#FFFFFF", linestyle = :dash)
     plot!(ticks2, ticks1, seriestype = :path, c = "#FFFFFF", linestyle = :dash)
-    plot!(ticks3, ticks1, seriestype = :path, c = "#FFFFFF", linestyle = :dash,
-    widen = false)
+    plot!(ticks3, ticks1, seriestype = :path, c = "#FFFFFF", linestyle = :dash, widen = false)
 
 end

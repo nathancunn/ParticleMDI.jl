@@ -44,15 +44,11 @@ function plot_phi_matrix(outputFile::String, burnin::Int64 = 0, thin::Int64 = 1)
                   ["phi ($i, .)" for i = 1:K],
                   phi_matrix,
                   yflip = true,
+                  widen = false,
+                  left_margin = 20px,
                   c = :viridis,
                   clim = (0, maximum(phi_matrix)),
                   aspect_ratio = 1)
-    # spy(phiMatrix,
-    # Guide.xticks(ticks = [1:K;]),
-    # Guide.yticks(ticks = [1:K;]),
-    # Guide.xlabel("Φ(x, ⋅)"),
-    # Guide.ylabel("Φ(⋅, y)"),
-    # Scale.color_continuous_gradient(colormap = Scale.lab_gradient("#440154", "#1FA187", "#FDE725")))
 end
 
 
@@ -70,7 +66,7 @@ every second iteration
 ## Output
 Outputs a line plot of phi values resulting from pmdi output
 """
-function plot_phi_chain(outputFile::String, burnin::Int64, thin::Int64)
+function plot_phi_chain(outputFile::String, burnin::Int64 = 0, thin::Int64 = 1)
     phi_values = get_phi(outputFile, burnin, thin)
     n_phis = size(phi_values, 2)
     K = Int64(0.5 + sqrt(8 * size(phi_values, 2) + 1) * 0.5)
@@ -79,14 +75,8 @@ function plot_phi_chain(outputFile::String, burnin::Int64, thin::Int64)
     Plots.plot(phi_values,
                layout = n_phis,
                legend = false,
-               colour = [i for j = 1:1, i = 1:n_phis],
+               palette = :viridis,
                ylims = [0, maximum(phi_values)],
                title = [phi_names[i] for j = 1:1, i = 1:n_phis],
-               titlefont = Plots.font(family = "serif", pointsize = 12))
-
-    # plot(melt(phiValues), x = :Iteration, y = :value, color = :variable,
-    # Geom.line,
-    # Guide.xlabel("Iteration"),
-    # Guide.ylabel("Φ"),
-    # Coord.Cartesian(xmax = maximum(phiValues[:Iteration])))
+               xticks = false)
 end

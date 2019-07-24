@@ -57,5 +57,6 @@ function plot_nclust_chain(outputFile::String, burnin::Int64 = 0, thin::Int64 = 
                     layout = K,
                     c = :viridis,
                     title = [dataNames[i] for j = 1:1, i = 1:K],
-                    titlefont = Plots.font(family = "serif", pointsize = 12))
+                    left_margin = 20px,
+                    xticks = false)
 end
