@@ -10,7 +10,7 @@ mutable struct NegBinomCluster
                                       Vector{Int}(zeros(Int, size(dataFile, 2))))
 end
 
-function calc_logprob(obs::Array, cl::NegBinomCluster, featureFlag::Array)
+function calc_logprob(obs, cl::NegBinomCluster, featureFlag::Array)
 
     # out = (lgamma(1 + cl.n + 1) - lgamma(1 + cl.n)) * sum(featureFlag)
     out = 0.0
@@ -31,7 +31,7 @@ function calc_logprob(obs::Array, cl::NegBinomCluster, featureFlag::Array)
       return out
 end
 
-function cluster_add!(cl::NegBinomCluster, obs::Array, featureFlag::Array)
+function cluster_add!(cl::NegBinomCluster, obs, featureFlag::Array)
   cl.n     += 1
   @inbounds  for q = 1:length(obs)
     if featureFlag[q]

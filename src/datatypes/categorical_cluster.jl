@@ -11,7 +11,7 @@ mutable struct CategoricalCluster
 end
 
 
-function calc_logprob(obs::Array{Int}, cl::CategoricalCluster, featureFlag::Array)
+function calc_logprob(obs, cl::CategoricalCluster, featureFlag::Array)
   out = - sum(log.(cl.nlevels[featureFlag] .+ cl.n))
   @inbounds for q = 1:length(obs)
     if featureFlag[q]
@@ -25,7 +25,7 @@ function calc_logprob(obs::Array{Int}, cl::CategoricalCluster, featureFlag::Arra
   return out
 end
 
-function cluster_add!(cl::CategoricalCluster, obs::Array{Int}, featureFlag::Array)
+function cluster_add!(cl::CategoricalCluster, obs, featureFlag::Array)
   @inbounds cl.n  += Int(1)
   @simd for q = 1:length(obs)
     if featureFlag[q]
