@@ -260,7 +260,7 @@ function pmdi(dataFiles, dataTypes, N::Int64, particles::Int64,
             end
 
             # Resampling
-            if calc_ESS(logweight) <= - 0.5 * particles
+            if calc_ESS(logweight) <=  0.5 * particles
                 partstar = draw_partstar(logweight, particles)
                 logweight .= 1.0
                 for k in 1:K
