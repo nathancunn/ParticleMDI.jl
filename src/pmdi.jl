@@ -215,10 +215,12 @@ function pmdi(dataFiles, dataTypes, N::Int64, particles::Int64,
                 # Draw the new allocations
                 for p in 1:particles
                     # fprob = logprob_particle[:, p]
-                    max_logprob = maximum(fprob)
                     for n in 1:N
                          # fprob[n] = Π[n, k] * exp(fprob[n] - max_logprob)
                          fprob[n] = logprob_particle[n, p]
+                     end
+                     max_logprob = maximum(fprob)
+                     for n in 1:N
                          fprob[n] -= max_logprob
                          fprob[n] = exp(fprob[n])
                          fprob[n] *= Π_k[n]
@@ -260,7 +262,7 @@ function pmdi(dataFiles, dataTypes, N::Int64, particles::Int64,
             end
 
             # Resampling
-            if calc_ESS(logweight) <= - 0.5 * particles
+            if calc_ESS(logweight) <= 0.5 * particles
                 partstar = draw_partstar(logweight, particles)
                 logweight .= 1.0
                 for k in 1:K

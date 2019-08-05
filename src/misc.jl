@@ -176,17 +176,17 @@ function countn(A, b)
     return out
 end
 
-function wipedout(v1, v2, x)
+function wipedout0(v1, v2, x)
     # Is the number of occurrences of x greater in
     # v2 than v1?
     count1 = 0
-    for i in eachindex(v2)
-        if v2[i] == x
+    @inbounds for v in v2
+        if v == x
             count1 += 1
         end
     end
-    for i in eachindex(v1)
-        if v1[i] == x
+    @inbounds for v in v1
+        if v == x
             count1 -= 1
         end
         if count1 < 0
@@ -194,4 +194,34 @@ function wipedout(v1, v2, x)
         end
     end
     return true
+end
+
+function wipedout(v1, v2, x)
+    return (length(findall(y -> y == x, v2)) >= length(findall(y -> y == x, v1)))
+end
+
+@inline function canonise_IDs2(IDs)
+    U = unique(IDs)
+    for i in eachindex(IDs)
+        for (j, u) in enumerate(U)
+            if IDs[i] == u
+                IDs[i] = j
+                break
+            end
+        end
+    end
+    return IDs
+end
+
+@inline function canonise_IDs(IDs)
+    u = Dict{Int, Int}()
+    count = 1
+    for i in eachindex(IDs)
+        if get(u, IDs[i], false) == false
+            u[IDs[i]] = count
+            count += 1
+        end
+        IDs[i] = u[IDs[i]]
+    end
+    return IDs
 end

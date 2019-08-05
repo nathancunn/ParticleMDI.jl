@@ -100,7 +100,7 @@ function plot_pmdi_data(data,
   C(n) = [RGB(cgrad(:viridis)[floor(Int, z)]) for z in collect(LinRange(1, 30, n))]
   clusters_plot = plot(palette = C(nclust))
   bar!(clust_mat[:, 2]',
-       seriescolor = clust_mat[:, 1]',
+       seriescolor = clust_mat[end:-1:1, 1]',
           legend = false,
           yflip = false,
           widen = false,
@@ -109,7 +109,7 @@ function plot_pmdi_data(data,
           tickfontsize = 1,
           bottom_margin = -7.5px,
           left_margin = - 7.5px,
-          annotation = (1, labs_y, clust_mat[end:-1:1, 1]))
+          annotation = (1, labs_y, clust_mat[:, 1]))
 
 
   #clusters_plot = Plots.heatmap(clusters_matrix,

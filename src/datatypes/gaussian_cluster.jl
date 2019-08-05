@@ -38,7 +38,7 @@ function calc_logprob(obs, cl::GaussianCluster, featureFlag)
   # """
 end
 
-function cluster_add!(cl::GaussianCluster, obs::Array, featureFlag::Array)
+function cluster_add!(cl::GaussianCluster, obs, featureFlag)
   cl.n     += 1
   @inbounds  for q = 1:length(obs)
     if featureFlag[q]
@@ -74,7 +74,7 @@ function gaussian_normalise!(dataFile::Array)
     # μ = mean(dataFile[:, d])
     # σ = std(dataFile[:, d]) + eps(Float64)
     μ = median(dataFile[:, d])
-    σ = 0.5 * μ - quantile(dataFile[:, d], 0.05) + eps(Float64)
+    σ = 0.5 * (μ - quantile(dataFile[:, d], 0.05)) + eps(Float64)
     dataFile[:, d] = (dataFile[:, d] .- μ) ./ σ
   end
   return
