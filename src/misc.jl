@@ -176,7 +176,7 @@ function countn(A, b)
     return out
 end
 
-function wipedout0(v1, v2, x)
+function wipedout(v1, v2, x)
     # Is the number of occurrences of x greater in
     # v2 than v1?
     count1 = 0
@@ -196,7 +196,7 @@ function wipedout0(v1, v2, x)
     return true
 end
 
-function wipedout(v1, v2, x)
+function wipedout0(v1, v2, x)
     return (length(findall(y -> y == x, v2)) >= length(findall(y -> y == x, v1)))
 end
 
@@ -225,3 +225,18 @@ end
     end
     return IDs
 end
+
+
+mutable struct Particle
+    ξ::Float64
+    ndescendants::Int
+    cluster_IDs::Vector{Int}
+    s::Vector{Int}
+    Particle(n_obs, N) = new(0.0,
+                             1,
+                             ones(Int, N),
+                             zeros(Int, n_obs))
+ end
+
+#function reweight!(p::Particle, logprob)
+#    fprob =

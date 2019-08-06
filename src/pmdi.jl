@@ -74,9 +74,11 @@ function pmdi(dataFiles, dataTypes, N::Int64, particles::Int64,
 
     # The corresponding gammas
     Γc = Matrix{Float64}(undef, N ^ K, K)
+    log_γ = log.(γc)
     for k = 1:K
-        Γc[:, k] = log.(γc[:, k][c_combn[:, k]])
+        Γc[:, k] = view(log.(γc[:, k]), c_combn[:, k])
     end
+
 
     # Which Φ value is activated by each of the above combinations
     Φ_index = K > 1 ? Matrix{Bool}(undef, N ^ K, Int64(K * (K - 1) / 2)) : fill(1, (N, 1))
@@ -166,35 +168,34 @@ function pmdi(dataFiles, dataTypes, N::Int64, particles::Int64,
             update_Φ!(Φ, v, s, Φ_index, γc, K, Γc)
         end
         update_γ!(γc, Φ, v, M, s, Φ_index, c_combn, Γc, N, K)
+        log_γ = log.(γc)
+
         Π = γc ./ sum(γc, dims = 1)
         Z = update_Z(Φ, Φ_index, Γc)
         v = update_v(n_obs, Z)
         update_M!(M, γc, K, N)
 
-        log_γ = log.(γc)
-
-        for k = 1:K
-            for i = 1:(N ^ K)
-                Γc[i, k] = log_γ[c_combn[i, k], k]
-            end
-        end
-
 
         for k = 1:K
             clusters[k][1] = dataTypes[k](dataFiles[k])
+            clust_ids = Dict{Int, Int}()
             id = 2
             us = unique(s[order_obs[1:(n1 - 1)], k])
             for u in us
                 clusters[k][id] = dataTypes[k](dataFiles[k])
+                clust_ids[u] = id
+                particle[u, :, k] .= id
                 id += 1
             end
             for i in order_obs[1:(n1 - 1)]
-                id = findall((in)(s[i, k]), us)[1] + 1
+                # id = findall((in)(s[i, k]), us)[1] + 1
+                id = clust_ids[s[i, k]]
+                sstar[:, i, k] .= s[i, k]
                 cluster_add!(clusters[k][id], dataFiles[k][i, :], featureFlag[k])
-                for p in 1:particles
-                    particle[s[i, k], p, k] = id
-                    sstar[p, i, k] = s[i, k]
-                end
+                #for p in 1:particles
+                #    particle[s[i, k], p, k] = id
+                #    sstar[p, i, k] = s[i, k]
+                #end
             end
         end
 
@@ -202,7 +203,7 @@ function pmdi(dataFiles, dataTypes, N::Int64, particles::Int64,
             for k in 1:K
                 particle_k = view(particle, :, :, k)
                 logprob_particle = view(logprob, particle_k, k)
-                obs = dataFiles[k][i, :]
+                obs = view(dataFiles[k], i, :)
                 # logprob_particle_k = view(logprob_particle, :, :, k)
                 sstar_id_k = view(sstar_id, :, k)
                 Π_k = view(Π, :, k)
@@ -246,7 +247,11 @@ function pmdi(dataFiles, dataTypes, N::Int64, particles::Int64,
                         id = p
                     else
                         id = max_k + 1
-                        clusters[k][id] = deepcopy(clusters[k][p])
+                        try
+                            clusters[k][id] = deepcopy(clusters[k][p])
+                        catch
+                            return sstar_id_k
+                        end
                         max_k += 1
                     end
                     cluster_add!(clusters[k][id], obs, featureFlag[k])
@@ -267,7 +272,8 @@ function pmdi(dataFiles, dataTypes, N::Int64, particles::Int64,
                 logweight .= 1.0
                 for k in 1:K
                     particle[:, :, k] = particle[:, partstar, k]
-                    for (i, id) in enumerate(1:(maximum(particle[:, :, k])))
+                    sstar[:, :, k] = sstar[partstar, :, k]
+                    for (i, id) in enumerate(sort(unique(particle[:, :, k])))
                         if id !== i
                             particle_k = view(particle, :, :, k)
                             for j in eachindex(particle_k)
@@ -327,5 +333,5 @@ function pmdi(dataFiles, dataTypes, N::Int64, particles::Int64,
     if featureSelect != nothing
         close(featureFile)
     end
-    return
+    return 
 end
