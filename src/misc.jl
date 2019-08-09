@@ -229,11 +229,3 @@ function canonicalise_IDs1(IDs)
     end
     return IDs
 end
-
-IDs = rand(1:10, 10000)
-@time b1 = canonicalise_IDs(IDs)
-@time b2 = denserank(IDs)
-
-b1 == b2
-IDs
-denserank(IDs)
