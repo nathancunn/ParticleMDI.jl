@@ -130,7 +130,10 @@ function pmdi(dataFiles, dataTypes, N::Int64, particles::Int64,
 
     # particle matches the cluster labels to the cluster IDs
     # particle = [fill(1, (N, particles)) for k in 1:K]
-    particle = ones(Int64, N, particles, K)
+    particle = ones(Int, N, particles, K)
+    particle_id = ones(Int, particles, K)
+    fprob_dict = Matrix{Float64}(undef, N + 1, particles)
+    fprob_done = Vector{Bool}(undef, particles)
     # logprob_particle = [Matrix{Float64}(undef, N, particles) for k in 1:K]
     logprob = Matrix{Float64}(undef, N * particles + 1, K)
     # logprob_particle = zeros(Float64, N, particles, K)
@@ -201,6 +204,7 @@ function pmdi(dataFiles, dataTypes, N::Int64, particles::Int64,
 
         for i in order_obs[n1:n_obs]
             for k in 1:K
+                fprob_done .= false
                 particle_k = view(particle, :, :, k)
                 logprob_particle = view(logprob, particle_k, k)
                 obs = view(dataFiles[k], i, :)
@@ -216,27 +220,55 @@ function pmdi(dataFiles, dataTypes, N::Int64, particles::Int64,
                 # Draw the new allocations
                 for p in 1:particles
                     # fprob = logprob_particle[:, p]
-                    for n in 1:N
-                         # fprob[n] = Π[n, k] * exp(fprob[n] - max_logprob)
-                         fprob[n] = logprob_particle[n, p]
-                     end
-                     max_logprob = maximum(fprob)
-                     for n in 1:N
-                         fprob[n] -= max_logprob
-                         fprob[n] = exp(fprob[n])
-                         fprob[n] *= Π_k[n]
+                    # fprob_key = hash(sum(particle_k[:, p]))
+                    # fprob_key = string(particle_k[:, p])
+
+                    if fprob_done[particle_id[p, k]]
+                        for n in 1:N
+                        fprob[n] = fprob_dict[n, particle_id[p, k]]
+                        end
+                        logweight[p] += fprob_dict[end, particle_id[p, ]]
+                    else
+                        for n in 1:N
+                             # fprob[n] = Π[n, k] * exp(fprob[n] - max_logprob)
+                             fprob[n] = logprob_particle[n, p]
+                         end
+                         max_logprob = maximum(fprob)
+                         for n in 1:N
+                             fprob[n] -= max_logprob
+                             fprob[n] = exp(fprob[n])
+                             fprob[n] *= Π_k[n]
+                        end
+                        fprob = cumsum!(fprob, fprob)
+                        for n in 1:N
+                            fprob[n] = fprob[n] / fprob[N]
+                        end
+                        # fprob = fprob ./ maximum(fprob)
+                        fprob_dict[1:(end - 1), particle_id[p, k]] = fprob
+                        fprob_dict[end, particle_id[p]] =  log(sum(fprob)) + max_logprob
+                        logweight[p] += log(sum(fprob)) + max_logprob
+                        fprob_done[particle_id[p, k]] = true
                     end
-                    logweight[p] += log(sum(fprob)) + max_logprob
                     # Set reference trajectory
                     if p != 1
-                        new_s = sample(1:N, Weights(fprob))
+                        new_s = 1
+                        u = rand()
+                        for i in 1:(N - 1)
+                            if fprob[new_s] > u
+                                break
+                            else
+                                new_s += 1
+                            end
+                        end
+                        # new_s = sample(1:N, Weights(fprob))
                     else
                         new_s = s[i, k]
                     end
+                    particle_id[p, k] = particle_id[p, k] * (N * particles) + new_s
                     sstar_id_k[p] = particle[new_s, p, k]
                     sstar[p, i, k] = new_s
                 end
-
+                particle_id[:, k] = canonicalise_IDs(particle_id[:, k])
                 # Add observation to new cluster
                 max_k = maximum(particle_k)
                 for p in unique(sstar_id_k)
@@ -272,6 +304,8 @@ function pmdi(dataFiles, dataTypes, N::Int64, particles::Int64,
                 logweight .= 1.0
                 for k in 1:K
                     particle[:, :, k] = particle[:, partstar, k]
+                    particle_id[:, k] = canonicalise_IDs(particle_id[partstar, k])
+                    # particle_id[:, k] = denserank(particle_id[partstar, k])
                     sstar[:, :, k] = sstar[partstar, :, k]
                     for (i, id) in enumerate(sort(unique(particle[:, :, k])))
                         if id !== i
@@ -333,5 +367,5 @@ function pmdi(dataFiles, dataTypes, N::Int64, particles::Int64,
     if featureSelect != nothing
         close(featureFile)
     end
-    return 
+    return
 end

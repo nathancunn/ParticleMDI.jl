@@ -200,7 +200,7 @@ function wipedout0(v1, v2, x)
     return (length(findall(y -> y == x, v2)) >= length(findall(y -> y == x, v1)))
 end
 
-@inline function canonise_IDs2(IDs)
+@inline function canonicalise_IDs(IDs)
     U = unique(IDs)
     for i in eachindex(IDs)
         for (j, u) in enumerate(U)
@@ -213,30 +213,27 @@ end
     return IDs
 end
 
-@inline function canonise_IDs(IDs)
-    u = Dict{Int, Int}()
-    count = 1
-    for i in eachindex(IDs)
-        if get(u, IDs[i], false) == false
-            u[IDs[i]] = count
-            count += 1
+function canonicalise_IDs1(IDs)
+    sorted = sort(IDs)
+    sortperm = sortperm(IDs)
+    key = - 1
+    val = 0
+    for (i, s) in enumerate(sortinds)
+        if sortinds[i] == key
+            IDs[i] = val
+        else
+            val += 1
+            IDs[i] = val
+            key = sortinds[i]
         end
-        IDs[i] = u[IDs[i]]
     end
     return IDs
 end
 
+IDs = rand(1:10, 10000)
+@time b1 = canonicalise_IDs(IDs)
+@time b2 = denserank(IDs)
 
-mutable struct Particle
-    ξ::Float64
-    ndescendants::Int
-    cluster_IDs::Vector{Int}
-    s::Vector{Int}
-    Particle(n_obs, N) = new(0.0,
-                             1,
-                             ones(Int, N),
-                             zeros(Int, n_obs))
- end
-
-#function reweight!(p::Particle, logprob)
-#    fprob =
+b1 == b2
+IDs
+denserank(IDs)

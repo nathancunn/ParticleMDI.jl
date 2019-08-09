@@ -9,6 +9,7 @@ import StatsBase
 
 # Core code
 include("pmdi.jl")
+include("__pmdi.jl")
 include("misc.jl")
 include("update_hypers.jl")
 
