@@ -132,3 +132,19 @@ ParticleMDI.align_labels!(s, Φ, γ, N, 0)
 
 @test all(s[:, 2:K] .== s[:, 1])
 @test all(γ[:, 2:K] .== γ[:, 1])
+
+# Check the particle IDs are doing what they should
+# ie particle IDs
+data1 = [rand(Normal(2, 1), 50, 16);
+        rand(Normal(-2, 1), 50, 16)]
+data2 = [rand(Normal(2, 1), 50, 16);
+        rand(Normal(-2, 1), 50, 16)]
+data3 = [rand(Normal(2, 1), 50, 16);
+        rand(Normal(-2, 1), 50, 16)]
+dataFiles = [data1, data2, data3]
+dataTypes = [ParticleMDI.GaussianCluster, ParticleMDI.GaussianCluster, ParticleMDI.GaussianCluster]
+particle, cluster = ParticleMDI.__pmdi(dataFiles, dataTypes, 10, 2, 25 / 100, 1, featureSelect = true)
+@test all([sum([cluster[k][particle[i, j, k]].n for i in 1:10]) for j in 1:32 for k in 1:3] .== 100)
+
+particle, cluster = ParticleMDI.__pmdi(dataFiles, dataTypes, 10, 1024, 25 / 100, 100, featureSelect = true)
+@test all([sum([cluster[k][particle[i, j, k]].n for i in 1:10]) for j in 1:32 for k in 1:3] .== 100)
