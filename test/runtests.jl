@@ -144,7 +144,7 @@ data3 = [rand(Normal(2, 1), 50, 16);
 dataFiles = [data1, data2, data3]
 dataTypes = [ParticleMDI.GaussianCluster, ParticleMDI.GaussianCluster, ParticleMDI.GaussianCluster]
 particle, cluster = ParticleMDI.__pmdi(dataFiles, dataTypes, 10, 2, 25 / 100, 1, featureSelect = true)
-@test all([sum([cluster[k][particle[i, j, k]].n for i in 1:10]) for j in 1:32 for k in 1:3] .== 100)
+@test all([sum([cluster[k][particle[i, j, k]].n for i in 1:10]) for j in 1:2 for k in 1:3] .== 100)
 
 particle, cluster = ParticleMDI.__pmdi(dataFiles, dataTypes, 10, 1024, 25 / 100, 100, featureSelect = true)
-@test all([sum([cluster[k][particle[i, j, k]].n for i in 1:10]) for j in 1:32 for k in 1:3] .== 100)
+@test all([sum([cluster[k][particle[i, j, k]].n for i in 1:10]) for j in 1:1024 for k in 1:3] .== 100)
