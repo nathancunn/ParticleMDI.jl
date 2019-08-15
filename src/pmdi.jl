@@ -270,7 +270,7 @@ function pmdi(dataFiles, dataTypes, N::Int64, particles::Int64,
                     sstar_id_k[p] = particle[new_s, p, k]
                     sstar[p, i, k] = new_s
                 end
-                particle_id[:, k] = canonicalise_IDs(particle_id[:, k])
+                canonicalise_IDs!(view(particle_id, :, k))
                 # Add observation to new cluster
                 max_k = maximum(particle_k)
                 for p in unique(sstar_id_k)
@@ -312,7 +312,8 @@ function pmdi(dataFiles, dataTypes, N::Int64, particles::Int64,
                 logweight .= 1.0
                 for k in 1:K
                     particle[:, :, k] = particle[:, partstar, k]
-                    particle_id[:, k] = canonicalise_IDs(particle_id[partstar, k])
+                    particle_id[:, k] = particle_id[partstar, k]
+                    canonicalise_IDs!(view(particle_id, :, k))
                     # particle_id[:, k] = denserank(particle_id[partstar, k])
                     sstar[:, :, k] = sstar[partstar, :, k]
                     for (i, id) in enumerate(sort(unique(particle[:, :, k])))
