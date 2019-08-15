@@ -141,6 +141,9 @@ function pmdi(dataFiles, dataTypes, N::Int64, particles::Int64,
 
     # A vector containing all of the clusters
     clusters = [Vector{dataTypes[k]}(undef, N * particles + 1) for k in 1:K]
+    # Keep track of how many copies of a cluster exists
+    clusters_counts = zeros(Int, N * particles + 1, K)
+    clusters_counts[1, :] .= particles * N
 
     sstar_id = Matrix{Int64}(undef, particles, K)
     sstar = zeros(Int64, particles, n_obs, K)
@@ -186,6 +189,8 @@ function pmdi(dataFiles, dataTypes, N::Int64, particles::Int64,
             us = unique(s[order_obs[1:(n1 - 1)], k])
             for u in us
                 clusters[k][id] = dataTypes[k](dataFiles[k])
+                clusters_counts[id, k] = particles
+                clusters_counts[1, k] -= particles
                 clust_ids[u] = id
                 particle[u, :, k] .= id
                 id += 1
@@ -195,10 +200,6 @@ function pmdi(dataFiles, dataTypes, N::Int64, particles::Int64,
                 id = clust_ids[s[i, k]]
                 sstar[:, i, k] .= s[i, k]
                 cluster_add!(clusters[k][id], dataFiles[k][i, :], featureFlag[k])
-                #for p in 1:particles
-                #    particle[s[i, k], p, k] = id
-                #    sstar[p, i, k] = s[i, k]
-                #end
             end
         end
 
@@ -264,7 +265,8 @@ function pmdi(dataFiles, dataTypes, N::Int64, particles::Int64,
                     else
                         new_s = s[i, k]
                     end
-                    particle_id[p, k] = particle_id[p, k] * (N * particles) + new_s
+                    particle_id[p, k] *= (N * particles)
+                    particle_id[p, k] += new_s
                     sstar_id_k[p] = particle[new_s, p, k]
                     sstar[p, i, k] = new_s
                 end
@@ -272,18 +274,24 @@ function pmdi(dataFiles, dataTypes, N::Int64, particles::Int64,
                 # Add observation to new cluster
                 max_k = maximum(particle_k)
                 for p in unique(sstar_id_k)
-                    if wipedout(particle_k, sstar_id_k, p)
+                    ncopies = 0
+                    for s in sstar_id_k
+                        if s == p
+                            ncopies += 1
+                        end
+                    end
+                    # if wipedout(particle_k, sstar_id_k, p)
+                    if ncopies >= clusters_counts[p, k]
                         # If the origin cluster still exists somewhere
                         # Need to create a new cluster
                         # with obs added to it
                         id = p
                     else
                         id = max_k + 1
-                        try
-                            clusters[k][id] = deepcopy(clusters[k][p])
-                        catch
-                            return sstar_id_k
-                        end
+                        clusters_counts[p, k] -= ncopies
+                        clusters_counts[id, k] = ncopies
+                        # clusters[k][id] = deepcopy(clusters[k][p])
+                        clusters[k][id] = copy_particle(clusters[k][p], dataFiles[k])
                         max_k += 1
                     end
                     cluster_add!(clusters[k][id], obs, featureFlag[k])
@@ -315,7 +323,8 @@ function pmdi(dataFiles, dataTypes, N::Int64, particles::Int64,
                                     particle_k[j] = i
                                 end
                             end
-                            clusters[k][i] = deepcopy(clusters[k][id])
+                            # clusters[k][i] = deepcopy(clusters[k][id])
+                            clusters[k][i] = copy_particle(clusters[k][id], dataFiles[k])
                         end
                     end
                 end
