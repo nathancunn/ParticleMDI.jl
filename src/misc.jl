@@ -200,8 +200,8 @@ function wipedout0(v1, v2, x)
     return (length(findall(y -> y == x, v2)) >= length(findall(y -> y == x, v1)))
 end
 
-@inline function canonicalise_IDs(IDs)
-    U = unique(IDs)
+@inline function canonicalise_IDs0(IDs)
+    U = sort(unique(IDs))
     for i in eachindex(IDs)
         for (j, u) in enumerate(U)
             if IDs[i] == u
@@ -212,6 +212,12 @@ end
     end
     return IDs
 end
+
+@inline function canonicalise_IDs(IDs)
+    return indexin(IDs, IDs)
+end
+
+
 
 function canonicalise_IDs1(IDs)
     sorted = sort(IDs)
