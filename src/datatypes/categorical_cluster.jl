@@ -3,11 +3,23 @@ mutable struct CategoricalCluster
   n::Int                          # count of cluster members
   counts::Matrix{Int}     # count of occurrence of levels
   nlevels::Array{Float64}           # The denominator in logprob calculation
-  CategoricalCluster(dataFile::Matrix{Int}) =
+  CategoricalCluster(dataFile::Matrix) =
   new(0,
-      zeros(Int, maximum(dataFile), size(dataFile, 2)),
+      zeros(Int, maximum(Int, dataFile), size(dataFile, 2)),
       # [0.5 * maximum(dataFile[:, d]) for d = 1:size(dataFile, 2)]
       0.5 * maximum(dataFile, dims = 1))
+end
+
+function copy_particle(particle::CategoricalCluster, dataFile)
+    new_particle = CategoricalCluster(dataFile)
+    new_particle.n = particle.n
+    for i in eachindex(particle.counts)
+      new_particle.counts[i] = particle.counts[i]
+    end
+    for i in eachindex(particle.nlevels)
+      new_particle.nlevels[i] = particle.nlevels[i]
+    end
+    return new_particle
 end
 
 
@@ -29,7 +41,7 @@ function cluster_add!(cl::CategoricalCluster, obs, featureFlag::Array)
   @inbounds cl.n  += Int(1)
   @simd for q = 1:length(obs)
     if featureFlag[q]
-      @inbounds cl.counts[obs[q], q] += Int(1)
+      @inbounds cl.counts[obs[q], q] += 1
     end
   end
   return

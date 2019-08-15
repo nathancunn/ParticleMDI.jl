@@ -10,6 +10,15 @@ mutable struct NegBinomCluster
                                       Vector{Int}(zeros(Int, size(dataFile, 2))))
 end
 
+function copy_particle(particle::NegBinomCluster, dataFile)
+    new_particle = NegBinomCluster(dataFile)
+    new_particle.n = particle.n
+    for i in eachindex(particle.Σ)
+      new_particle.Σ[i] = particle.Σ[i]
+    end
+    return new_particle
+end
+
 function calc_logprob(obs, cl::NegBinomCluster, featureFlag::Array)
 
     # out = (lgamma(1 + cl.n + 1) - lgamma(1 + cl.n)) * sum(featureFlag)

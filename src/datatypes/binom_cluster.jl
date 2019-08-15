@@ -9,6 +9,17 @@ mutable struct BinomCluster
                                               ones(Int, size(dataFile, 2)))
 end
 
+
+function copy_particle(particle::BinomCluster, dataFile)
+    new_particle = BinomCluster(dataFile)
+    new_particle.n = particle.n
+    for i in eachindex(particle.α)
+      new_particle.α[i] = particle.α[i]
+      new_particle.β[i] = particle.β[i]
+    end
+    return new_particle
+end
+
 function calc_logprob(obs::Array{Int}, cl::BinomCluster)
   out = 0.0
   for q in 1:length(obs)

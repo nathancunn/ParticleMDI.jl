@@ -21,6 +21,19 @@ mutable struct GaussianCluster
                                       ones(Float64, size(dataFile, 2)) .* 0.5)
 end
 
+function copy_particle(particle::GaussianCluster, dataFile)
+    new_particle = GaussianCluster(dataFile)
+    new_particle.n = particle.n
+    for i in eachindex(particle.μ)
+      new_particle.μ[i] = particle.μ[i]
+      new_particle.Σ[i] = particle.Σ[i]
+      new_particle.λ[i] = particle.λ[i]
+      new_particle.β[i] = particle.β[i]
+    end
+    return new_particle
+end
+
+
 function calc_logprob(obs, cl::GaussianCluster, featureFlag)
     out = sum(featureFlag) * (log(1 / sqrt(pi)) +
                           SpecialFunctions.lgamma(0.5 * cl.n + 1.0) -
