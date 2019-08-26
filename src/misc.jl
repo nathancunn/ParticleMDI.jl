@@ -176,31 +176,38 @@ function countn(A, b)
     return out
 end
 
-function wipedout(v1, v2, x)
+function wipedout0(v1, v2, x)
     # Is the number of occurrences of x greater in
     # v2 than v1?
+    if x == 1
+        return false
+    end
     count1 = 0
     @inbounds for v in v2
         if v == x
             count1 += 1
         end
     end
-    @inbounds for v in v1
-        if v == x
-            count1 -= 1
-        end
-        if count1 < 0
-            return false
+    for j in 1:size(v1, 2)
+    @inbounds for i in 1:size(v1, 1)
+            if v1[i, j] == x
+                count1 -= 1
+                if count1 < 0
+                    return false
+                else
+                    break
+                end
+            end
         end
     end
     return true
 end
 
-function wipedout0(v1, v2, x)
-    return (length(findall(y -> y == x, v2)) >= length(findall(y -> y == x, v1)))
+function wipedout(v1, v2, x)
+    return count(y -> y == x, v2) >= count(y -> y == x, v1)
 end
 
-@inline function canonicalise_IDs00(IDs)
+@inline function canonicalise_IDs00!(IDs)
     # U = sort(unique(IDs))
     U = [1]
     for u in sort(IDs)
@@ -233,20 +240,29 @@ end
     end
 end
 
-
-function canonicalise_IDs1(IDs)
-    sorted = sort(IDs)
-    sortperm = sortperm(IDs)
-    key = - 1
-    val = 0
-    for (i, s) in enumerate(sortinds)
-        if sortinds[i] == key
-            IDs[i] = val
-        else
-            val += 1
-            IDs[i] = val
-            key = sortinds[i]
+function canonicalise_ID00s!(IDs)
+    dict = Dict{Int, Int}()
+    for (i, ID) in enumerate(IDs)
+        if !haskey(dict, ID)
+            dict[ID] = i
         end
     end
-    return IDs
+    for i in 1:length(IDs)
+        IDs[i] = get(dict, IDs[i], 0)
+    end
+end
+
+
+function canonicalise_IDs0!(IDs)
+    tmp = zeros(Int, maximum(IDs))
+    count1 = 1
+    for (i, id) in enumerate(IDs)
+        if tmp[id] == 0
+            tmp[id] = count1
+            IDs[i] = count1
+            count1 += 1
+        else
+            IDs[i] = tmp[id]
+        end
+    end
 end

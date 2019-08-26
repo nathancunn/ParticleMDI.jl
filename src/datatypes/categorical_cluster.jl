@@ -3,7 +3,7 @@ mutable struct CategoricalCluster
   n::Int                          # count of cluster members
   counts::Matrix{Int}     # count of occurrence of levels
   nlevels::Array{Float64}           # The denominator in logprob calculation
-  CategoricalCluster(dataFile::Matrix) =
+  CategoricalCluster(dataFile) =
   new(0,
       zeros(Int, maximum(Int, dataFile), size(dataFile, 2)),
       # [0.5 * maximum(dataFile[:, d]) for d = 1:size(dataFile, 2)]

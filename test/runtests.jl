@@ -143,8 +143,20 @@ data3 = [rand(Normal(2, 1), 50, 16);
         rand(Normal(-2, 1), 50, 16)]
 dataFiles = [data1, data2, data3]
 dataTypes = [ParticleMDI.GaussianCluster, ParticleMDI.GaussianCluster, ParticleMDI.GaussianCluster]
-particle, cluster = ParticleMDI.__pmdi(dataFiles, dataTypes, 10, 2, 25 / 100, 1, featureSelect = true)
+particle, cluster, counts, n_ops = ParticleMDI.__pmdi(dataFiles, dataTypes, 10, 2, 25 / 100, 1, featureSelect = nothing)
 @test all([sum([cluster[k][particle[i, j, k]].n for i in 1:10]) for j in 1:2 for k in 1:3] .== 100)
+# Check that cluster counts is working correctly
+for k in 1:3
+    for i in 1:21
+    @test counts[i, k] == count(x -> x == i, particle[:, :, k])
+    end
+end
 
-particle, cluster = ParticleMDI.__pmdi(dataFiles, dataTypes, 10, 1024, 25 / 100, 100, featureSelect = true)
+particle, cluster, counts, n_ops = ParticleMDI.__pmdi(dataFiles, dataTypes, 10, 1024, 25 / 100, 100, featureSelect = nothing)
 @test all([sum([cluster[k][particle[i, j, k]].n for i in 1:10]) for j in 1:1024 for k in 1:3] .== 100)
+# Check that cluster counts is working correctly
+for k in 1:3
+    for i in 1:10241
+    @test counts[i, k] == count(x -> x == i, particle[:, :, k])
+    end
+end
