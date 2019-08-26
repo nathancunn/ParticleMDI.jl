@@ -79,7 +79,7 @@ function plot_pmdi_data(data,
                         top_margin = - 7.5px,
                         left_margin = 0px,
                         right_margin = - 7.5px,
-                        xlims = (0.5, size(dataFile, 2) - 0.5),
+                        xlims = (0.5, size(dataFile, 2) + 0.5),
                         xlabel = "Features",
                         ylabel = "P(select)")
     l = @layout [a{0.97w, 0.8h} b{0.03w, 0.8h}; c{0.97w, 0.2h} d{0.03w, 0.2h}]
@@ -97,10 +97,12 @@ function plot_pmdi_data(data,
   clust_mat[:, 2] = tmp[end:-1:1]
   labs_y = vcat(tmp[1] / 2,
               tmp[1:end - 1] + (tmp[2:end] - tmp[1:end-1]) ./ 2)
-  C(n) = [RGB(cgrad(:viridis)[floor(Int, z)]) for z in collect(LinRange(1, 30, n))]
-  clusters_plot = plot(palette = C(nclust))
+  # C(n) = [RGB(cgrad(:viridis)[floor(Int, z)]) for z in collect(LinRange(1, 30, n))]
+  # clusters_plot = plot(palette = C(nclust))
+  clusters_plot = plot()
   bar!(clust_mat[:, 2]',
-       seriescolor = clust_mat[end:-1:1, 1]',
+          seriescolor = clust_mat[end:-1:1, 1]',
+          color = "#C8C8C8",
           legend = false,
           yflip = false,
           widen = false,
@@ -143,9 +145,9 @@ function plot_pmdi_data(data,
   right_margin = -7.5px,
   ylabel = "Observations",
   c = :viridis,
-  xlims = (0.5, size(dataFile, 2) - 0.5)
+  xlims = (0.5, size(dataFile, 2) + 0.5)
   )
-  hline!(ticks, linestyle = :dash, c = "#FFFFFF")
+  hline!(ticks, linestyle = :dash, c = "#FFFFFF", linewidth = 1)
 
   if featureSelectProbs != nothing
     out = [data_plot, clusters_plot, fs_plot, clusters_plot2]

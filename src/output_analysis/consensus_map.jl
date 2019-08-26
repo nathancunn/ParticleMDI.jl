@@ -150,8 +150,6 @@ function consensus_map(psm::Posterior_similarity_matrix;
     if (K > 1) & (orderby != - 1)
         plots = [Plots.heatmap(Symmetric(psm.psm[k], :L)[hc.order, hc.order],
                         ticks = false,
-                        axis = nothing,
-                        tickfontsize = 1,
                         yflip = false,
                         title = psm.names[k],
                         legend = false,
@@ -159,7 +157,7 @@ function consensus_map(psm::Posterior_similarity_matrix;
                         widen = false,
                         c = :viridis,
                         clim = (0, 1)) for k in [K; 1:max(K - 1, 1)]]
-        l = @layout [a{0.85w} grid(max(K - 1, 1), 1)]
+        l = @layout [a{0.85w} grid(K - 1, 1)]
     elseif (K > 1) & (orderby == - 1)
         plot_order = [hclust(1 .- Symmetric(psm.psm[k], :L), linkage = :ward).order for k in 1:K]
         plots = [Plots.heatmap(Symmetric(psm.psm[k], :L)[plot_order[k], plot_order[k]],
@@ -190,9 +188,9 @@ function consensus_map(psm::Posterior_similarity_matrix;
 
     Plots.plot(plots..., layout = l,
                framestyle = :none)
-    plot!(ticks1, ticks2, seriestype = :path, c = "#FFFFFF", linestyle = :dash)
-    plot!(ticks1, ticks3, seriestype = :path, c = "#FFFFFF", linestyle = :dash)
-    plot!(ticks2, ticks1, seriestype = :path, c = "#FFFFFF", linestyle = :dash)
-    plot!(ticks3, ticks1, seriestype = :path, c = "#FFFFFF", linestyle = :dash, widen = false)
+    plot!(ticks1, ticks2, seriestype = :path, c = "#FFFFFF", linestyle = :dash, linewidth = 2.5)
+    plot!(ticks1, ticks3, seriestype = :path, c = "#FFFFFF", linestyle = :dash, linewidth = 2.5)
+    plot!(ticks2, ticks1, seriestype = :path, c = "#FFFFFF", linestyle = :dash, linewidth = 2.5)
+    plot!(ticks3, ticks1, seriestype = :path, c = "#FFFFFF", linestyle = :dash, linewidth = 2.5, widen = false)
 
 end
