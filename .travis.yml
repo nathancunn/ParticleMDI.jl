@@ -10,6 +10,7 @@ julia:
   - nightly
 matrix:
   fast_finish: true
+jobs:
   include:
     - os: windows
       arch: x64

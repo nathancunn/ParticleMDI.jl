@@ -181,7 +181,6 @@ function __pmdi(dataFiles, dataTypes, N::Int64, particles::Int64,
                 id = clust_ids[s[i, k]]
                 sstar[:, i, k] .= s[i, k]
                 cluster_add!(clusters[k][id], dataFiles[k][i, :], featureFlag[k])
-                n_operations += 1
             end
         end
 
@@ -278,7 +277,6 @@ function __pmdi(dataFiles, dataTypes, N::Int64, particles::Int64,
                         max_k += 1
                     end
                     cluster_add!(clusters[k][id], obs, featureFlag[k])
-                    # n_operations += 1
                     if id !== p
                         for part in 1:particles
                             s_id = sstar[part, i, k]
