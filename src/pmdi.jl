@@ -163,7 +163,10 @@ function pmdi(dataFiles, dataTypes, N::Int64, particles::Int64,
     order_obs = collect(1:n_obs)
     n1 = floor(Int64, ρ * n_obs)
 
+
     @inbounds for it in 1:iter
+        fill!(clusters_counts, 0)
+        clusters_counts[1, :] .= particles * N
         for i in eachindex(particle)
             particle[i] = 1
         end
@@ -274,14 +277,14 @@ function pmdi(dataFiles, dataTypes, N::Int64, particles::Int64,
                 # Add observation to new cluster
                 max_k = maximum(particle_k)
                 for p in unique(sstar_id_k)
-                    ncopies = 0
-                    for s in sstar_id_k
-                        if s == p
-                            ncopies += 1
-                        end
-                    end
+                    ncopies = count(x -> x == p, sstar_id_k)
+                    # for s in sstar_id_k
+                    #    if s == p
+                    #        ncopies += 1
+                    #    end
+                    #end
                     # if wipedout(particle_k, sstar_id_k, p)
-                    if ncopies >= clusters_counts[p, k]
+                    if ncopies == clusters_counts[p, k]
                         # If the origin cluster still exists somewhere
                         # Need to create a new cluster
                         # with obs added to it
@@ -295,9 +298,12 @@ function pmdi(dataFiles, dataTypes, N::Int64, particles::Int64,
                         max_k += 1
                     end
                     cluster_add!(clusters[k][id], obs, featureFlag[k])
-                    for part in 1:particles
-                        if particle[sstar[part, i, k], part, k] == p
-                            particle[sstar[part, i, k], part, k] = id
+                    if id !== p
+                        for part in 1:particles
+                            s_id = sstar[part, i, k]
+                            if particle[s_id, part, k] == p
+                                particle[s_id, part, k] = id
+                            end
                         end
                     end
                 end
@@ -307,18 +313,20 @@ function pmdi(dataFiles, dataTypes, N::Int64, particles::Int64,
             end
 
             # Resampling
-            if calc_ESS(logweight) <= 0.5 * particles
+            if calc_ESS(logweight) <=  0.5 * particles
                 partstar = draw_partstar(logweight, particles)
                 logweight .= 1.0
                 for k in 1:K
                     particle[:, :, k] = particle[:, partstar, k]
                     particle_id[:, k] = particle_id[partstar, k]
                     canonicalise_IDs!(view(particle_id, :, k))
-                    # particle_id[:, k] = denserank(particle_id[partstar, k])
                     sstar[:, :, k] = sstar[partstar, :, k]
+                    # Reset clusters_counts
+                    clusters_counts[:, k] .= 0
+                    # Renumber the clusters to ensure elements don't grow too large
+                    particle_k = view(particle, :, :, k)
                     for (i, id) in enumerate(sort(unique(particle[:, :, k])))
                         if id !== i
-                            particle_k = view(particle, :, :, k)
                             for j in eachindex(particle_k)
                                 if particle_k[j] == id
                                     particle_k[j] = i
@@ -327,6 +335,7 @@ function pmdi(dataFiles, dataTypes, N::Int64, particles::Int64,
                             # clusters[k][i] = deepcopy(clusters[k][id])
                             clusters[k][i] = copy_particle(clusters[k][id], dataFiles[k])
                         end
+                        clusters_counts[i, k] = count(x -> x == i, particle_k)
                     end
                 end
             end
