@@ -226,10 +226,10 @@ function __pmdi(dataFiles, dataTypes, N::Int64, particles::Int64,
                         for n in 1:N
                             fprob[n] = fprob[n] / fprob[N]
                         end
-                        # fprob = fprob ./ maximum(fprob)
+                        logprob_inc = log(fprob[N]) + max_logprob
+                        fprob_dict[end, particle_id[p]] =  logprob_inc
+                        logweight[p] += logprob_inc
                         fprob_dict[1:(end - 1), particle_id[p, k]] = fprob
-                        fprob_dict[end, particle_id[p]] =  log(sum(fprob)) + max_logprob
-                        logweight[p] += log(sum(fprob)) + max_logprob
                         fprob_done[particle_id[p, k]] = true
                     end
                     # Set reference trajectory
