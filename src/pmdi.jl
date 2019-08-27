@@ -319,7 +319,19 @@ function pmdi(dataFiles, dataTypes, N::Int64, particles::Int64,
                 for k in 1:K
                     particle[:, :, k] = particle[:, partstar, k]
                     particle_id[:, k] = particle_id[partstar, k]
-                    canonicalise_IDs!(view(particle_id, :, k))
+                    curr_id = particle_id[1, k]
+                    particle_id[1, k] = 1
+                    new_id = 1
+                    for i in 2:particles
+                        if particle_id[i, k] == curr_id
+                            particle_id[i, k] = new_id
+                        else
+                            new_id += 1
+                            curr_id = particle_id[i, k]
+                            particle_id[i, k] = new_id
+                        end
+                    end
+                    # canonicalise_IDs!(view(particle_id, :, k))
                     sstar[:, :, k] = sstar[partstar, :, k]
                     # Reset clusters_counts
                     clusters_counts[:, k] .= 0
