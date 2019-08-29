@@ -294,7 +294,8 @@ function pmdi(dataFiles, dataTypes, N::Int64, particles::Int64,
                         clusters_counts[p, k] -= ncopies
                         clusters_counts[id, k] = ncopies
                         # clusters[k][id] = deepcopy(clusters[k][p])
-                        clusters[k][id] = copy_particle(clusters[k][p], dataFiles[k])
+                        # clusters[k][id] = copy_particle(clusters[k][p], dataFiles[k])
+                        clusters[k][id] = deepcopy(clusters[k][p])
                         max_k += 1
                     end
                     cluster_add!(clusters[k][id], obs, featureFlag[k])
@@ -344,8 +345,8 @@ function pmdi(dataFiles, dataTypes, N::Int64, particles::Int64,
                                     particle_k[j] = i
                                 end
                             end
-                            # clusters[k][i] = deepcopy(clusters[k][id])
-                            clusters[k][i] = copy_particle(clusters[k][id], dataFiles[k])
+                            clusters[k][i] = deepcopy(clusters[k][id])
+                            # clusters[k][i] = copy_particle(clusters[k][id], dataFiles[k])
                         end
                         clusters_counts[i, k] = count(x -> x == i, particle_k)
                     end

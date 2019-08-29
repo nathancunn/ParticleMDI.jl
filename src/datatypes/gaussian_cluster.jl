@@ -35,14 +35,14 @@ end
 
 
 function calc_logprob(obs, cl::GaussianCluster, featureFlag)
-    out = sum(featureFlag) * (log(1 / sqrt(pi)) +
+    @fastmath out = sum(featureFlag) * (log(1 / sqrt(pi)) +
                           SpecialFunctions.lgamma(0.5 * cl.n + 1.0) -
                           SpecialFunctions.lgamma(0.5 * cl.n + 0.5))
     # Iterate over features
-      @inbounds for q in 1:size(obs, 1)
+      for q in 1:size(obs, 1)
         if featureFlag[q]
         out += 0.5 * (log(cl.λ[q] / (cl.n + 1.0)))
-        out -= (0.5 * cl.n + 1.0) *
+        @inbounds out -= (0.5 * cl.n + 1.0) *
               log(1.0 + (1.0 / (cl.n + 1.0)) *
                   ((obs[q] - cl.μ[q]) ^ 2.0) * cl.λ[q])
         end

@@ -10,7 +10,7 @@ mutable struct CategoricalCluster
       0.5 * maximum(dataFile, dims = 1))
 end
 
-function copy_particle(particle::CategoricalCluster, dataFile)
+function copy_particle1(particle::CategoricalCluster, dataFile)
     new_particle = CategoricalCluster(dataFile)
     new_particle.n = particle.n
     for i in eachindex(particle.counts)
@@ -22,6 +22,9 @@ function copy_particle(particle::CategoricalCluster, dataFile)
     return new_particle
 end
 
+function copy_particle(particle::CategoricalCluster, dataFile)
+    return deepcopy(particle)
+end
 
 function calc_logprob(obs, cl::CategoricalCluster, featureFlag::Array)
   out = - sum(log.(cl.nlevels[featureFlag] .+ cl.n))
