@@ -131,9 +131,9 @@ function pmdi(dataFiles, dataTypes, N::Int64, particles::Int64,
     # particle matches the cluster labels to the cluster IDs
     particle = ones(Int, N, particles, K)
     particle_id = ones(Int, particles, K)
-    fprob_dict = Matrix{Float64}(undef, N + 2, particles)
+    fprob_dict = Matrix{Float64}(undef, N + 1, particles)
     fprob_done = Vector{Bool}(undef, particles)
-    new_id = 0
+    new_id = zeros(Int, N, particles, K)
     logprob = Matrix{Float64}(undef, N * particles + 1, K)
     logprob_particle = view(logprob, particle)
 
@@ -165,6 +165,8 @@ function pmdi(dataFiles, dataTypes, N::Int64, particles::Int64,
     @inbounds for it in 1:iter
         fill!(clusters_counts, 0)
         clusters_counts[1, :] .= particles * N
+        fill!(new_id, 0)
+        fill!(particle_id, 1)
         for i in eachindex(particle)
             particle[i] = 1
         end
@@ -217,14 +219,13 @@ function pmdi(dataFiles, dataTypes, N::Int64, particles::Int64,
                     logprob[id, k] = calc_logprob(obs, clusters[k][id], featureFlag[k])
                 end
                 # Draw the new allocations
-                new_id = 0
+                curr_id = 0
                 for p in 1:particles
                     id = particle_id[p, k]
                     if fprob_done[id]
                         for n in 1:N
-                        @inbounds fprob[n] = fprob_dict[n, id]
+                            @inbounds fprob[n] = fprob_dict[n, id]
                         end
-                        particle_id[p, k] = fprob_dict[N + 1, id]
                         logweight[p] += fprob_dict[end, id]
                     else
                         for n in 1:N
@@ -238,9 +239,6 @@ function pmdi(dataFiles, dataTypes, N::Int64, particles::Int64,
                         end
                         fprob = cumsum!(fprob, fprob)
                         logprob_inc = log(fprob[N]) + max_logprob
-                        new_id += 1
-                        fprob_dict[N + 1, id] = new_id
-                        particle_id[p, k] = new_id
                         fprob_dict[end, id] =  logprob_inc
                         logweight[p] += logprob_inc
                         for n in 1:N
@@ -265,6 +263,13 @@ function pmdi(dataFiles, dataTypes, N::Int64, particles::Int64,
                     end
                     sstar_id_k[p] = particle[new_s, p, k]
                     sstar[p, i, k] = new_s
+                    if new_id[new_s, id, k] == 0
+                        curr_id += 1
+                        new_id[new_s, id, k] = curr_id
+                        particle_id[p, k] = curr_id
+                    else
+                        particle_id[p, k] = new_id[new_s, id, k]
+                    end
                 end
                 # Add observation to new cluster
                 max_k = maximum(particle_k)
@@ -315,8 +320,6 @@ function pmdi(dataFiles, dataTypes, N::Int64, particles::Int64,
                 for k in 1:K
                     particle[:, :, k] = particle[:, partstar, k]
                     particle_id[:, k] = particle_id[partstar, k]
-                    curr_id = particle_id[1, k]
-                    particle_id[1, k] = 1
                     sstar[:, :, k] = sstar[partstar, :, k]
                     # Reset clusters_counts
                     clusters_counts[:, k] .= 0
