@@ -21,6 +21,7 @@ jobs:
       name: "Julia 32-bit"
   allow_failures:
     - julia: nightly
+    - os: windows
 #matrix:
 #  allow_failures:
 #    - julia: 1.0
