@@ -80,6 +80,7 @@ function __pmdi(dataFiles, dataTypes, N::Int64, particles::Int64,
     logprob = Matrix{Float64}(undef, N * particles + 1, K)
     fprob = Vector{Float64}(undef, N)
     cluster_update = zeros(Bool, N * particles + 1)
+    n_operations = 0
 
     # Feature selection index
     featureFlag = [rand(Bool, size(dataFiles[k], 2)) for k in 1:K]
@@ -183,6 +184,7 @@ function __pmdi(dataFiles, dataTypes, N::Int64, particles::Int64,
                 Π_k = view(Π, :, k)
                 for id in 1:maximum(particle_k)
                     logprob[id, k] = calc_logprob(obs, clusters[k][id], featureFlag[k])
+                    n_operations += 1
                 end
                 # Draw the new allocations
                 curr_id = 0
