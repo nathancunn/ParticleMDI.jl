@@ -333,11 +333,6 @@ function __pmdi(dataFiles, dataTypes, N::Int64, particles::Int64,
         # Match up labels across datasets
         align_labels!(s, Φ, γc, N, K)
 
-        if it % thin == 0
-            if featureSelect != nothing
-                writedlm(featureFile, [featureFlag...;]', ',')
-            end
-        end
     end
     if featureSelect != nothing
         close(featureFile)
