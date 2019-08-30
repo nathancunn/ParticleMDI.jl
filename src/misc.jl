@@ -207,25 +207,6 @@ function wipedout(v1, v2, x)
     return count(y -> y == x, v2) >= count(y -> y == x, v1)
 end
 
-@inline function canonicalise_IDs00!(IDs)
-    # U = sort(unique(IDs))
-    U = [1]
-    for u in sort(IDs)
-        if u != U[end]
-            push!(U, u)
-        end
-    end
-    for i in eachindex(IDs)
-        for (j, u) in enumerate(U)
-            if IDs[i] == u
-                IDs[i] = j
-                break
-            end
-        end
-    end
-    return IDs
-end
-
 @inline function canonicalise_IDs!(IDs)
     tmp = view(IDs, sortperm(IDs))
     current = - 1
@@ -240,29 +221,13 @@ end
     end
 end
 
-function canonicalise_ID00s!(IDs)
-    dict = Dict{Int, Int}()
-    for (i, ID) in enumerate(IDs)
-        if !haskey(dict, ID)
-            dict[ID] = i
-        end
-    end
-    for i in 1:length(IDs)
-        IDs[i] = get(dict, IDs[i], 0)
-    end
-end
 
-
-function canonicalise_IDs0!(IDs)
-    tmp = zeros(Int, maximum(IDs))
-    count1 = 1
-    for (i, id) in enumerate(IDs)
-        if tmp[id] == 0
-            tmp[id] = count1
-            IDs[i] = count1
-            count1 += 1
-        else
-            IDs[i] = tmp[id]
-        end
+function draw_uniform_sorted(n)
+    @assert n != 0 "WTF"
+    u = rand(n)
+    u[n] = exp(log(u[n]) / n)
+    for i in (n - 1):-1:1
+        u[i] = exp(log(u[i]) / i) * u[i + 1]
     end
+    return u
 end
