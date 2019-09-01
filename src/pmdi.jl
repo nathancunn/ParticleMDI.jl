@@ -318,9 +318,10 @@ function pmdi(dataFiles, dataTypes, N::Int64, particles::Int64,
                 partstar = draw_partstar(logweight, particles)
                 logweight .= 1.0
                 for k in 1:K
+                    sstar_k = view(sstar, :, :, k)
                     particle[:, :, k] = particle[:, partstar, k]
                     particle_id[:, k] = particle_id[partstar, k]
-                    sstar[:, :, k] = sstar[partstar, :, k]
+                    sstar_k = sstar_k[partstar, :]
                     # Reset clusters_counts
                     clusters_counts[:, k] .= 0
                     # Renumber the clusters to ensure elements don't grow too large

@@ -80,7 +80,7 @@ function update_γ!(γ::Array, Φ::Array, v::Float64, M, s::Array, Φ_index::Arr
          pertinent_rows = findZindices(k, K, 1, N)
          for n = 1:N
             old_γ = γ[n, k] + 0.0
-            β_star = β_0 + v * sum((norm_temp[pertinent_rows])) / γ[n, k]
+            β_star = β_0 + v * sum(view(norm_temp, pertinent_rows, :)) / γ[n, k]
             γ[n, k] = rand(Gamma(α_star[n, k], 1 / β_star)) + eps(Float64)
             for i in pertinent_rows
                 norm_temp[i] *= γ[n, k] / old_γ
