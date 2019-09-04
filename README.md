@@ -19,7 +19,8 @@ specified with `ParticleMDI.GaussianCluster`, categorical data with `ParticleMDI
 - `ρ::Float64` proportion of allocations assumed known in each MCMC iteration, a value in (0, 1).
 - `iter::Int64` number of iterations to run
 - `outputFile::String` specification of a CSV file to store output
-- `featureSelect::Bool` defaults to `false`, setting `true` means feature selection will be performed.
+- `featureSelect::Union{String, Nothing}` defaults to `nothing`, setting a string value means feature selection will be performed and output will be stored in the CSV file specified.
+- `thin::Int` an integer, thinning the resulting MCMC samples to every `thin`$^th$ sample. 
 
 ## Output
 Outputs a .csv file, each row containing:
@@ -35,9 +36,13 @@ data = [Matrix(dataset("datasets", "iris")[:, 1:4])]
 gaussian_normalise!(data[1])
 dataTypes = [ParticleMDI.GaussianCluster]
 # Run a simple run first to allow for compilation
-pmdi(data, dataTypes, 10, 2, 0.99, 1, "output/file.csv", true)
-pmdi(data, dataTypes, 10, 32, 0.25, 1000, "output/file.csv", true)
+pmdi(data, dataTypes, 10, 2, 0.99, 1, "output/file.csv")
+pmdi(data, dataTypes, 10, 32, 0.25, 1000, "output/file.csv")
 
+# View output; first generate a posterior similarity matrix
+psm = generate_psm("output/file.csv", burnin = 500, thin = 2)
+# Can be plotted as a heatmap
+consensus_map(psm, k = 3)
 ```
 
 ## Extending ParticleMDI for user-defined data types
