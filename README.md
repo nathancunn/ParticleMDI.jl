@@ -20,7 +20,7 @@ specified with `ParticleMDI.GaussianCluster`, categorical data with `ParticleMDI
 - `iter::Int64` number of iterations to run
 - `outputFile::String` specification of a CSV file to store output
 - `featureSelect::Union{String, Nothing}` defaults to `nothing`, setting a string value means feature selection will be performed and output will be stored in the CSV file specified.
-- `thin::Int` an integer, thinning the resulting MCMC samples to every `thin`$^th$ sample. 
+- `thin::Int` an integer, thinning the resulting MCMC samples to every `thin`th sample. 
 
 ## Output
 Outputs a .csv file, each row containing:
