@@ -65,8 +65,9 @@ function align_labels!(s::Array, Φ::Array, γ::Array, N::Int, K::Int)
     # unique_s = unique(s)
     # No need to permute labels for dataset 1
     @inbounds for k = 1:K
+        occupied = unique(s[:, k])
         relevant_Φs = Φ_log[(Φ_lab[:, 1] .== k) .| (Φ_lab[:, 2] .== k)]
-        for label in unique(s[:, k])
+        for label in occupied
             label_ind  = s[:, k] .== label
             all(label_ind .== false) && continue
             label_rows = s[label_ind, setdiff2(K, k)]
@@ -74,7 +75,7 @@ function align_labels!(s::Array, Φ::Array, γ::Array, N::Int, K::Int)
             # as this will always dominate others
             # and saves time
             # However, detailed balance?
-            for new_label in mapslices(mode, label_rows, dims = 1)
+            for new_label in occupied # mapslices(mode, label_rows, dims = 1)
                 new_label == label && continue
                 new_label_ind   = s[:, k] .== new_label
                 new_label_rows  = s[new_label_ind, setdiff2(K, k)]

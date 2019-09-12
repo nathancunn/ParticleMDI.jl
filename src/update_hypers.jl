@@ -4,10 +4,10 @@ end
 
 function update_M!(M::Array, γ::Array, K::Int, N::Int)
     # Update the mass parameter
-    prior = [2, 0.25]
+    prior = [2.0, 0.25]
     for k = 1:K
         @inbounds current_γ = γ[:, k]
-        current_M = Float64(M[k])
+        current_M = M[k]
         log_likelihood = - sum(logpdf.(Gamma(current_M / N, 1.0), current_γ))
         log_likelihood_0 = - sum(logpdf.(Gamma(prior[1], prior[2]), current_M))
         proposed_mass = (current_M + rand(Normal()) / 10)
@@ -104,9 +104,7 @@ function update_Φ!(Φ, v::Float64, s, Φ_index, γ, K::Int, Γ)
     end
     @inbounds for i in 1:length(Φ)
         # Get relevant allocations
-        # current_allocations = s[:, Φ_lab[i, :]]
         Φ_current = Φ[i] + 0.0
-        # n_agree = sum(current_allocations[:, 1] .== current_allocations[:, 2])
         n_agree = 0
         for j in 1:size(s, 1)
             # For some reason checking if the difference is zero
@@ -117,12 +115,12 @@ function update_Φ!(Φ, v::Float64, s, Φ_index, γ, K::Int, Γ)
         end
         # Get relevant terms in the normalisation constant
         pertinent_rows = findall(Φ_index[:, i])
-        β_star = β_0 + v * sum(norm_temp[pertinent_rows, :]) / (1 + Φ_current)
+        β_star = β_0 + (v * sum(norm_temp[pertinent_rows, :]) / (1 + Φ_current))
         weights = lgamma.((0:n_agree) .+ α_0)
         weights += logpdf.(Binomial(n_agree, 0.5), 0:n_agree)
-        weights -= (0:(n_agree)) .* log(β_star)
-        α_star = α_0 + n_agree
-        Φ[i] = rand(Gamma(α_star, 1 / β_star)) + eps(Float64)
+        weights -= (0:(n_agree)) .* + log(1 / β_star)
+        α_star = α_0 + sample(0:n_agree, Weights(exp.(weights .- maximum(weights))))
+        Φ[i] = rand(Gamma(α_star, 1 / β_star)) # + eps(Float64)
         # Update the normalising constant values to account for this update
         norm_temp[pertinent_rows, :] .*= (1 + Φ[i]) / (1 + Φ_current)
     end

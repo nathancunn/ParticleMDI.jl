@@ -57,9 +57,8 @@ function pmdi(dataFiles, dataTypes, N::Int64, particles::Int64,
 
     # Initialise the hyperparameters
     M = ones(Float64, K) .* 2 # Mass parameter
-    γc = rand(Gamma(1.0 / N, 1), N, K) .+ eps(Float64) # Component weights
+    γc = rand(Gamma(1.0 / N, 1.0), N, K) .+ eps(Float64) # Component weights
     Φ = K > 1 ? rand(Gamma(1, 0.2), Int64(K * (K - 1) * 0.5)) : zeros(1) # Dataset concordance measure
-
     # Initialise allocations randomly according to γc
     s = Matrix{Int64}(undef, n_obs, K)
     for k = 1:K
@@ -173,16 +172,17 @@ function pmdi(dataFiles, dataTypes, N::Int64, particles::Int64,
         shuffle!(order_obs)
 
         # Update hyperparameters
+
+        update_M!(M, γc, K, N)
+        update_γ!(γc, Φ, v, M, s, Φ_index, c_combn, Γc, N, K)
+        log_γ = log.(γc)
+        Π = γc ./ sum(γc, dims = 1)
+
         if K > 1
             update_Φ!(Φ, v, s, Φ_index, γc, K, Γc)
         end
-        update_γ!(γc, Φ, v, M, s, Φ_index, c_combn, Γc, N, K)
-        log_γ = log.(γc)
-
-        Π = γc ./ sum(γc, dims = 1)
         Z = update_Z(Φ, Φ_index, Γc)
         v = update_v(n_obs, Z)
-        update_M!(M, γc, K, N)
 
 
         for k = 1:K
