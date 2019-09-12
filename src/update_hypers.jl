@@ -118,10 +118,11 @@ function update_Φ!(Φ, v::Float64, s, Φ_index, γ, K::Int, Γ)
         β_star = β_0 + (v * sum(norm_temp[pertinent_rows, :]) / (1 + Φ_current))
         weights = lgamma.((0:n_agree) .+ α_0)
         weights += logpdf.(Binomial(n_agree, 0.5), 0:n_agree)
-        weights -= (0:(n_agree)) .* + log(1 / β_star)
+        weights -= (0:(n_agree)) .* log(1 / β_star)
         α_star = α_0 + sample(0:n_agree, Weights(exp.(weights .- maximum(weights))))
         Φ[i] = rand(Gamma(α_star, 1 / β_star)) # + eps(Float64)
         # Update the normalising constant values to account for this update
+        println(α_star)
         norm_temp[pertinent_rows, :] .*= (1 + Φ[i]) / (1 + Φ_current)
     end
     return
