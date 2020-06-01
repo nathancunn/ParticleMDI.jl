@@ -36,8 +36,8 @@ end
 
 function calc_logprob(obs, cl::GaussianCluster, featureFlag)
     @fastmath out = sum(featureFlag) * (log(1 / sqrt(pi)) +
-                          SpecialFunctions.loggamma(0.5 * cl.n + 1.0) -
-                          SpecialFunctions.loggamma(0.5 * cl.n + 0.5))
+                          SpecialFunctions.SpecialFunctions.loggamma(0.5 * cl.n + 1.0) -
+                          SpecialFunctions.SpecialFunctions.loggamma(0.5 * cl.n + 0.5))
     # Iterate over features
       for q in 1:size(obs, 1)
         if featureFlag[q]
@@ -76,7 +76,7 @@ function calc_logmarginal(cl::GaussianCluster)
   κ_n = cl.n + κ_0
 
   lm =  - α_n * log.(β_n) .+ ((α_0 * log(β_0)) .+
-        loggamma(α_n) - loggamma(α_0) +
+        SpecialFunctions.loggamma(α_n) - SpecialFunctions.loggamma(α_0) +
         0.5 * (log(κ_0) - log(κ_n)) -
         (cl.n * 0.5) * log(2 * π))
   return lm

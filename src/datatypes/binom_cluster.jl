@@ -23,10 +23,10 @@ end
 function calc_logprob(obs::Array{Int}, cl::BinomCluster)
   out = 0.0
   for q in 1:length(obs)
-    @inbounds out += - loggamma(obs[q] + 1) - loggamma(25 - obs[q] + 1) +
-                    loggamma(cl.α[q] + obs[q]) + loggamma(25 - obs[q] + cl.β[q]) +
-                    loggamma(cl.α[q] + cl.β[q]) -
-                    loggamma(cl.α[q] + 25 + cl.β[q]) - loggamma(cl.α[q]) - loggamma(cl.β[q])
+    @inbounds out += - SpecialFunctions.loggamma(obs[q] + 1) - SpecialFunctions.loggamma(25 - obs[q] + 1) +
+                    SpecialFunctions.loggamma(cl.α[q] + obs[q]) + SpecialFunctions.loggamma(25 - obs[q] + cl.β[q]) +
+                    SpecialFunctions.loggamma(cl.α[q] + cl.β[q]) -
+                    SpecialFunctions.loggamma(cl.α[q] + 25 + cl.β[q]) - SpecialFunctions.loggamma(cl.α[q]) - SpecialFunctions.loggamma(cl.β[q])
   end
   return out
 end

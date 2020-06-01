@@ -21,20 +21,20 @@ end
 
 function calc_logprob(obs, cl::NegBinomCluster, featureFlag::Array)
 
-    # out = (loggamma(1 + cl.n + 1) - loggamma(1 + cl.n)) * sum(featureFlag)
+    # out = (SpecialFunctions.loggamma(1 + cl.n + 1) - SpecialFunctions.loggamma(1 + cl.n)) * sum(featureFlag)
     out = 0.0
     # Iterate over features
       @inbounds for q in 1:size(obs, 1)
         if featureFlag[q]
-        # out += loggamma(1 + obs[q] + cl.Σ[q]) -
-        #       loggamma(1 + cl.n + 1 + 1 + obs[q] + cl.Σ[q]) +
-        #       loggamma(1 + cl.n + 1 + cl.Σ[q]) -
-        #       loggamma(1 + cl.Σ[q])
-       out += loggamma(1 + cl.n + 1) +
-          loggamma(1 + obs[q] + cl.Σ[q]) +
-          loggamma(1 + cl.n + 1 + cl.Σ[q]) -
-          loggamma(1 + cl.n + 1 + 1 + obs[q] + cl.Σ[q]) -
-          loggamma(1 + cl.n) - loggamma(1 + cl.Σ[q])
+        # out += SpecialFunctions.loggamma(1 + obs[q] + cl.Σ[q]) -
+        #       SpecialFunctions.loggamma(1 + cl.n + 1 + 1 + obs[q] + cl.Σ[q]) +
+        #       SpecialFunctions.loggamma(1 + cl.n + 1 + cl.Σ[q]) -
+        #       SpecialFunctions.loggamma(1 + cl.Σ[q])
+       out += SpecialFunctions.loggamma(1 + cl.n + 1) +
+          SpecialFunctions.loggamma(1 + obs[q] + cl.Σ[q]) +
+          SpecialFunctions.loggamma(1 + cl.n + 1 + cl.Σ[q]) -
+          SpecialFunctions.loggamma(1 + cl.n + 1 + 1 + obs[q] + cl.Σ[q]) -
+          SpecialFunctions.loggamma(1 + cl.n) - SpecialFunctions.loggamma(1 + cl.Σ[q])
         end
       end
       return out
@@ -53,8 +53,8 @@ end
 function calc_logmarginal(cl::NegBinomCluster)
   # This returns the log of the marginal likelihood of the cluster
   # Used for feature selection
-  lm = loggamma.(cl.Σ .+ 1) -
-   loggamma.(cl.Σ .+ (cl.n + 1 + 1)) .+
-   loggamma(1 + cl.n)
+  lm = SpecialFunctions.loggamma.(cl.Σ .+ 1) -
+   SpecialFunctions.loggamma.(cl.Σ .+ (cl.n + 1 + 1)) .+
+   SpecialFunctions.loggamma(1 + cl.n)
   return lm
 end
