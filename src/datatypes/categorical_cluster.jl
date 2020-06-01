@@ -56,9 +56,9 @@ function calc_logmarginal(cl::CategoricalCluster)
   # β_0 = 0.5
   lm = zeros(Float64, length(cl.nlevels))
   for q in 1:length(cl.nlevels)
-    lm[q] += lgamma(cl.nlevels[q] * 2) - lgamma.(cl.nlevels[q] * 2 .+ cl.n)
+    lm[q] += loggamma(cl.nlevels[q] * 2) - loggamma.(cl.nlevels[q] * 2 .+ cl.n)
     for r in 1:Int(2 * cl.nlevels[q])
-      lm[q] += lgamma(cl.counts[r, q] + 0.5)
+      lm[q] += loggamma(cl.counts[r, q] + 0.5)
 
     end
   end
